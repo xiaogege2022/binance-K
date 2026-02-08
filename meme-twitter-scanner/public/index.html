@@ -3,676 +3,378 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Meme Coin Twitter Scanner</title>
+<title>推特CA扫描神器</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#0b0e11;color:#eaecef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh}
 .header{background:#1a1d23;border-bottom:1px solid #2b2f36;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100}
 .header h1{font-size:18px;color:#00c853}
 .hdr-right{display:flex;align-items:center;gap:12px;font-size:13px}
-.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px;background:#f44336}
-.status-dot.on{background:#00c853}
-.controls{background:#1a1d23;border-bottom:1px solid #2b2f36;padding:10px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.btn{padding:5px 14px;border-radius:5px;border:1px solid #2b2f36;background:0;color:#848e9c;cursor:pointer;font-size:12px;transition:.2s}
-.btn.active{background:#00c853;color:#000;border-color:#00c853;font-weight:600}
-.btn:hover:not(.active){border-color:#848e9c;color:#eaecef}
-.stats{margin-left:auto;display:flex;gap:18px;font-size:12px;color:#848e9c}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px;background:#f44336}
+.dot.on{background:#00c853}
+.ctrl{background:#1a1d23;border-bottom:1px solid #2b2f36;padding:10px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.b{padding:5px 14px;border-radius:5px;border:1px solid #2b2f36;background:0;color:#848e9c;cursor:pointer;font-size:12px;transition:.2s}
+.b.a{background:#00c853;color:#000;border-color:#00c853;font-weight:600}
+.b:hover:not(.a){border-color:#848e9c;color:#eaecef}
+.st{margin-left:auto;display:flex;gap:18px;font-size:12px;color:#848e9c}
 .sv{color:#eaecef;font-weight:600}
 .main{display:flex;height:calc(100vh - 100px)}
-.panel{overflow-y:auto;padding:14px}
-.panel-left{flex:2;border-right:1px solid #2b2f36}
-.panel-right{flex:1}
-.panel h2{font-size:14px;color:#848e9c;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #2b2f36}
-.panel h2.green{color:#00c853}
-.card{background:#1a1d23;border:1px solid #00c853;border-radius:8px;padding:14px;margin-bottom:10px;animation:slideIn .3s}
-.card.flash{animation:flashG 1.5s}
-@keyframes slideIn{from{transform:translateY(-8px);opacity:0}to{transform:translateY(0);opacity:1}}
-@keyframes flashG{0%{border-color:#0f0;box-shadow:0 0 20px rgba(0,200,83,.5)}100%{border-color:#00c853;box-shadow:none}}
-.card-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.tname{font-size:15px;font-weight:700;color:#fff}
-.tag{padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase}
-.tag.sol{background:rgba(153,69,255,.2);color:#b388ff}
-.tag.bsc{background:rgba(243,186,47,.2);color:#f3ba2f}
-.row{display:flex;align-items:flex-start;margin-bottom:5px;font-size:12px}
-.lbl{color:#848e9c;min-width:72px;flex-shrink:0}
-.val{color:#eaecef;word-break:break-all}
-.val a{color:#1e88e5;text-decoration:none}
-.val a:hover{text-decoration:underline}
-.addr{font-family:'Courier New',monospace;font-size:11px;background:#0b0e11;padding:2px 5px;border-radius:3px;cursor:pointer}
-.addr:hover{background:#2b2f36}
-.tweet-box{background:#0b0e11;border-left:3px solid #00c853;padding:7px 10px;margin-top:6px;border-radius:0 4px 4px 0;font-size:12px;color:#b7bdc6;white-space:pre-wrap;word-break:break-word}
-.time{color:#848e9c;font-size:10px;text-align:right;margin-top:4px}
-.feed{padding:6px 10px;margin-bottom:4px;border-radius:5px;background:#1a1d23;font-size:11px;border-left:3px solid #2b2f36}
-.feed.tw{border-left-color:#1e88e5}
-.feed.ck{border-left-color:#ff9800}
-.feed-n{font-weight:600;color:#eaecef;margin-bottom:1px}
-.feed-d{color:#848e9c;font-size:10px}
-.empty{text-align:center;padding:50px 20px;color:#848e9c}
-.empty .ico{font-size:40px;margin-bottom:12px}
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#00c853;color:#000;padding:7px 18px;border-radius:5px;font-size:12px;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999}
-.toast.show{opacity:1}
+.p{overflow-y:auto;padding:14px}
+.pl{flex:2;border-right:1px solid #2b2f36}
+.pr{flex:1}
+.p h2{font-size:14px;color:#848e9c;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #2b2f36}
+.p h2.g{color:#00c853}
+.c{background:#1a1d23;border:1px solid #00c853;border-radius:8px;padding:14px;margin-bottom:10px;animation:si .3s}
+.c.fl{animation:fg 1.5s}
+@keyframes si{from{transform:translateY(-8px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes fg{0%{border-color:#0f0;box-shadow:0 0 20px rgba(0,200,83,.5)}100%{border-color:#00c853;box-shadow:none}}
+.ch{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.tn{font-size:15px;font-weight:700;color:#fff}
+.tg{padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase}
+.tg.sol{background:rgba(153,69,255,.2);color:#b388ff}
+.tg.bsc{background:rgba(243,186,47,.2);color:#f3ba2f}
+.r{display:flex;align-items:flex-start;margin-bottom:5px;font-size:12px}
+.lb{color:#848e9c;min-width:72px;flex-shrink:0}
+.vl{color:#eaecef;word-break:break-all}
+.vl a{color:#1e88e5;text-decoration:none}
+.vl a:hover{text-decoration:underline}
+.ad{font-family:'Courier New',monospace;font-size:11px;background:#0b0e11;padding:2px 5px;border-radius:3px;cursor:pointer}
+.ad:hover{background:#2b2f36}
+.tw{background:#0b0e11;border-left:3px solid #00c853;padding:7px 10px;margin-top:6px;border-radius:0 4px 4px 0;font-size:12px;color:#b7bdc6;white-space:pre-wrap;word-break:break-word}
+.tm{color:#848e9c;font-size:10px;text-align:right;margin-top:4px}
+.fi{padding:6px 10px;margin-bottom:4px;border-radius:5px;background:#1a1d23;font-size:11px;border-left:3px solid #2b2f36}
+.fi.ht{border-left-color:#1e88e5}
+.fi.ck{border-left-color:#ff9800}
+.fn{font-weight:600;color:#eaecef;margin-bottom:1px}
+.fd{color:#848e9c;font-size:10px}
+.em{text-align:center;padding:50px 20px;color:#848e9c}
+.em .ic{font-size:40px;margin-bottom:12px}
+.tt{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#00c853;color:#000;padding:7px 18px;border-radius:5px;font-size:12px;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999}
+.tt.s{opacity:1}
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-track{background:#0b0e11}
 ::-webkit-scrollbar-thumb{background:#2b2f36;border-radius:3px}
-.log-box{background:#0b0e11;border:1px solid #2b2f36;border-radius:6px;padding:10px;margin:10px 20px;max-height:120px;overflow-y:auto;font-family:monospace;font-size:11px;color:#848e9c;display:none}
-.log-box.show{display:block}
-.highlight{color:#ff0;background:rgba(255,255,0,.15);padding:0 2px;border-radius:2px}
+.lb2{background:#0b0e11;border:1px solid #2b2f36;border-radius:6px;padding:10px;margin:10px 20px;max-height:160px;overflow-y:auto;font-family:monospace;font-size:11px;color:#848e9c;display:none}
+.lb2.s{display:block}
+.hl{color:#ff0;background:rgba(255,255,0,.15);padding:0 2px;border-radius:2px}
+.manual-link{display:inline-block;margin-left:8px;font-size:11px;padding:1px 6px;background:#2b2f36;border-radius:3px;color:#1e88e5;text-decoration:none}
+.manual-link:hover{background:#3b3f46}
 </style>
 </head>
 <body>
-
 <div class="header">
-  <h1>Meme Coin Twitter Scanner</h1>
+  <h1>推特CA扫描神器</h1>
   <div class="hdr-right">
-    <span><span class="status-dot" id="solDot"></span>SOL: <span id="solSt">OFF</span></span>
-    <span><span class="status-dot" id="bscDot"></span>BSC: <span id="bscSt">OFF</span></span>
-    <button class="btn" id="soundBtn" onclick="toggleSound()">Sound OFF</button>
-    <button class="btn" onclick="toggleLog()">Log</button>
+    <span><span class="dot" id="solD"></span>SOL: <span id="solS">离线</span></span>
+    <span><span class="dot" id="bscD"></span>BSC: <span id="bscS">离线</span></span>
+    <button class="b" id="sndB" onclick="tglSnd()">声音 关</button>
+    <button class="b" onclick="tglLog()">日志</button>
   </div>
 </div>
-
-<div class="controls">
-  <button class="btn active" data-c="all" onclick="setFilter('all',this)">ALL</button>
-  <button class="btn" data-c="sol" onclick="setFilter('sol',this)">SOL</button>
-  <button class="btn" data-c="bsc" onclick="setFilter('bsc',this)">BSC</button>
-  <div class="stats">
-    <span>Matches: <span class="sv" id="nMatch">0</span></span>
-    <span>Scanned: <span class="sv" id="nScan">0</span></span>
-    <span>Checked: <span class="sv" id="nCheck">0</span></span>
-    <span>Queue: <span class="sv" id="nQueue">0</span></span>
+<div class="ctrl">
+  <button class="b a" onclick="flt('all',this)">全部</button>
+  <button class="b" onclick="flt('sol',this)">SOL</button>
+  <button class="b" onclick="flt('bsc',this)">BSC</button>
+  <div class="st">
+    <span>匹配: <span class="sv" id="nM">0</span></span>
+    <span>扫描: <span class="sv" id="nS">0</span></span>
+    <span>已查: <span class="sv" id="nC">0</span></span>
+    <span>队列: <span class="sv" id="nQ">0</span></span>
   </div>
 </div>
-
-<div class="log-box" id="logBox"></div>
-
+<div class="lb2" id="logB"></div>
 <div class="main">
-  <div class="panel panel-left">
-    <h2 class="green">Contract Address Matches</h2>
-    <div id="matchList"><div class="empty"><div class="ico">&#128269;</div><p>Waiting for matches...</p><p style="margin-top:6px;font-size:11px">When a new coin's Twitter posts its contract address, it will appear here</p></div></div>
+  <div class="p pl">
+    <h2 class="g">合约地址匹配结果</h2>
+    <div id="mL"><div class="em"><div class="ic">&#128269;</div><p>等待匹配中...</p><p style="margin-top:6px;font-size:11px">当新币的推特发布了其合约地址，将在这里显示</p></div></div>
   </div>
-  <div class="panel panel-right">
-    <h2>Live New Tokens</h2>
-    <div id="feedList"><div class="empty"><div class="ico">&#9201;</div><p>Connecting to data sources...</p></div></div>
+  <div class="p pr">
+    <h2>实时新币流</h2>
+    <div id="fL"><div class="em"><div class="ic">&#9201;</div><p>正在连接数据源...</p></div></div>
   </div>
 </div>
-
-<div class="toast" id="toast">Copied!</div>
+<div class="tt" id="toast">已复制!</div>
 
 <script>
-// ==================== STATE ====================
-let filter = 'all';
-let soundOn = false;
-let matches = [];
-let feeds = [];
-let nScan = 0, nCheck = 0, nMatch = 0;
-let audioCtx = null;
+// ===== 状态 =====
+let CF='all',sndOn=false,matches=[],feeds=[],nS=0,nC=0,nM=0,audioCtx=null;
+const Q=[]; let qRun=false;
+const cache=new Map(), CTTL=30*60000, CI=1000;
 
-// Twitter check queue
-const checkQueue = [];
-let checking = false;
-const checkedCache = new Map(); // contractAddr -> { ts, result }
-const CACHE_TTL = 30 * 60 * 1000; // 30 min
-const CHECK_INTERVAL = 1000; // 1 second between twitter checks
-
-// CORS proxies (try in order)
-const CORS_PROXIES = [
-  url => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
-  url => 'https://corsproxy.io/?' + encodeURIComponent(url),
-  url => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url),
+// CORS代理列表
+const PXS=[
+  u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u),
+  u=>'https://corsproxy.io/?'+encodeURIComponent(u),
+  u=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u),
 ];
 
-// Nitter instances (try in order)
-const NITTER_HOSTS = [
-  'https://nitter.privacydev.net',
-  'https://xcancel.com',
+// Nitter RSS源(最可靠的获取推文方式)
+const NITTER_RSS=[
   'https://nitter.poast.org',
-  'https://nitter.woodland.cafe',
+  'https://xcancel.com',
+  'https://nitter.privacydev.net',
 ];
 
-// ==================== LOGGING ====================
-function log(msg, type = 'info') {
-  const box = document.getElementById('logBox');
-  const colors = { info: '#848e9c', ok: '#00c853', warn: '#ff9800', err: '#f44336', match: '#00ff6a' };
-  const t = new Date().toLocaleTimeString('zh-CN', { hour12: false });
-  box.innerHTML += `<div style="color:${colors[type]||'#848e9c'}">[${t}] ${msg}</div>`;
-  box.scrollTop = box.scrollHeight;
-  if (box.children.length > 300) box.removeChild(box.firstChild);
+// ===== 日志 =====
+function L(m,t='info'){
+  const b=document.getElementById('logB');
+  const cs={info:'#848e9c',ok:'#00c853',warn:'#ff9800',err:'#f44336',match:'#00ff6a'};
+  const ts=new Date().toLocaleTimeString('zh-CN',{hour12:false});
+  b.innerHTML+=`<div style="color:${cs[t]||'#848e9c'}">[${ts}] ${m}</div>`;
+  b.scrollTop=b.scrollHeight;
+  if(b.children.length>500)b.removeChild(b.firstChild);
 }
+function tglLog(){document.getElementById('logB').classList.toggle('s')}
 
-function toggleLog() {
-  document.getElementById('logBox').classList.toggle('show');
+// ===== 声音 =====
+function initA(){audioCtx=new(window.AudioContext||window.webkitAudioContext)()}
+function beep(){
+  if(!sndOn||!audioCtx)return;
+  try{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);
+  o.frequency.setValueAtTime(880,audioCtx.currentTime);o.frequency.setValueAtTime(1100,audioCtx.currentTime+.1);o.frequency.setValueAtTime(1320,audioCtx.currentTime+.2);
+  g.gain.setValueAtTime(.3,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.01,audioCtx.currentTime+.6);o.start();o.stop(audioCtx.currentTime+.6)}catch(e){}
 }
+function tglSnd(){if(!audioCtx)initA();sndOn=!sndOn;const b=document.getElementById('sndB');b.textContent=sndOn?'声音 开':'声音 关';b.classList.toggle('a',sndOn);if(sndOn&&Notification.permission==='default')Notification.requestPermission()}
 
-// ==================== AUDIO ====================
-function initAudio() { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+// ===== 界面 =====
+function flt(c,btn){CF=c;document.querySelectorAll('.ctrl .b').forEach(b=>b.classList.remove('a'));btn.classList.add('a');rM();rF()}
+function uS(){document.getElementById('nM').textContent=nM;document.getElementById('nS').textContent=nS;document.getElementById('nC').textContent=nC;document.getElementById('nQ').textContent=Q.length}
+function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=String(s);return d.innerHTML}
+function ft(ts){if(!ts)return'';const d=new Date(ts);return d.toLocaleTimeString('zh-CN',{hour12:false})+' '+d.toLocaleDateString('zh-CN',{month:'2-digit',day:'2-digit'})}
+function cp(a){navigator.clipboard.writeText(a).then(()=>{const t=document.getElementById('toast');t.classList.add('s');setTimeout(()=>t.classList.remove('s'),1200)})}
 
-function playSound() {
-  if (!soundOn || !audioCtx) return;
-  try {
-    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-    o.connect(g); g.connect(audioCtx.destination);
-    o.frequency.setValueAtTime(880, audioCtx.currentTime);
-    o.frequency.setValueAtTime(1100, audioCtx.currentTime + 0.1);
-    o.frequency.setValueAtTime(1320, audioCtx.currentTime + 0.2);
-    g.gain.setValueAtTime(0.3, audioCtx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
-    o.start(); o.stop(audioCtx.currentTime + 0.6);
-  } catch(e) {}
-}
+function rM(){
+  const el=document.getElementById('mL');
+  const ls=CF==='all'?matches:matches.filter(m=>m.chain===CF);
+  if(!ls.length){el.innerHTML='<div class="em"><div class="ic">&#128269;</div><p>暂无匹配</p></div>';return}
+  el.innerHTML=ls.map((m,i)=>`
+    <div class="c ${i===0?'fl':''}">
+      <div class="ch"><span class="tn">${esc(m.name)}</span><span class="tg ${m.chain}">${m.chain.toUpperCase()}</span></div>
+      <div class="r"><span class="lb">合约:</span><span class="vl"><span class="ad" onclick="cp('${esc(m.ca)}')" title="点击复制">${esc(m.ca)}</span></span></div>
+      <div class="r"><span class="lb">推特:</span><span class="vl"><a href="https://x.com/${esc(m.tw)}" target="_blank">@${esc(m.tw)}</a><a class="manual-link" href="https://x.com/${esc(m.tw)}" target="_blank">打开推特</a></span></div>
+      ${m.mc?`<div class="r"><span class="lb">市值:</span><span class="vl">${esc(m.mc)}</span></div>`:''}
+      ${(m.mTw||[]).map(t=>`<div class="tw">${hlA(esc(t),esc(m.ca))}</div>`).join('')}
+      ${m.mBio?'<div class="tw" style="border-left-color:#1e88e5">在推特简介中找到合约地址</div>':''}
+      <div class="tm">${ft(m.ts)}</div>
+    </div>`).join('')}
 
-function toggleSound() {
-  if (!audioCtx) initAudio();
-  soundOn = !soundOn;
-  const b = document.getElementById('soundBtn');
-  b.textContent = soundOn ? 'Sound ON' : 'Sound OFF';
-  b.classList.toggle('active', soundOn);
-  if (soundOn && Notification.permission === 'default') Notification.requestPermission();
-}
+function hlA(t,a){if(!a||a.length<10)return t;const i=t.toLowerCase().indexOf(a.toLowerCase());if(i===-1)return t;return t.substring(0,i)+'<span class="hl">'+t.substring(i,i+a.length)+'</span>'+t.substring(i+a.length)}
 
-// ==================== UI ====================
-function setFilter(c, btn) {
-  filter = c;
-  document.querySelectorAll('.controls .btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  renderMatches(); renderFeed();
-}
+function rF(){
+  const el=document.getElementById('fL');
+  const ls=CF==='all'?feeds:feeds.filter(f=>f.chain===CF);
+  if(!ls.length){el.innerHTML='<div class="em"><div class="ic">&#9201;</div><p>等待新币...</p></div>';return}
+  el.innerHTML=ls.slice(0,150).map(f=>`
+    <div class="fi ${f.tw?'ht':''} ${f.ck?'ck':''}">
+      <div class="fn">${esc(f.name)} <span class="tg ${f.chain}" style="font-size:9px">${f.chain.toUpperCase()}</span></div>
+      <div class="fd">${f.ca?esc(f.ca.substring(0,6))+'...'+esc(f.ca.slice(-4)):''} ${f.tw?'| @'+esc(f.tw):''} | ${ft(f.ts)}</div>
+    </div>`).join('')}
 
-function updateStats() {
-  document.getElementById('nMatch').textContent = nMatch;
-  document.getElementById('nScan').textContent = nScan;
-  document.getElementById('nCheck').textContent = nCheck;
-  document.getElementById('nQueue').textContent = checkQueue.length;
-}
+function addFeed(tk){feeds.unshift(tk);if(feeds.length>500)feeds=feeds.slice(0,500);nS++;rF();uS()}
 
-function esc(s) {
-  if (!s) return '';
-  const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML;
-}
+// ===== SOL链: PumpPortal WebSocket =====
+let solWs=null,solRD=1000;
+function connSOL(){
+  L('正在连接PumpPortal (SOL)...');
+  try{solWs=new WebSocket('wss://pumpportal.fun/api/data')}catch(e){L('WebSocket连接失败: '+e.message,'err');setTimeout(connSOL,solRD);return}
+  solWs.onopen=()=>{L('SOL 已连接','ok');document.getElementById('solD').classList.add('on');document.getElementById('solS').textContent='在线';solRD=1000;solWs.send(JSON.stringify({method:'subscribeNewToken'}))};
+  solWs.onmessage=async(ev)=>{
+    try{
+      const d=JSON.parse(ev.data);if(!d.mint)return;
+      const tk={name:d.name||d.symbol||'未知',ca:d.mint,chain:'sol',tw:null,mc:d.marketCapSol?Number(d.marketCapSol).toFixed(1)+' SOL':null,uri:d.uri||null,ts:Date.now()};
+      addFeed(tk);
+      if(tk.uri)fetchMeta(tk);
+    }catch(e){}};
+  solWs.onclose=()=>{L('SOL断开，正在重连...','warn');document.getElementById('solD').classList.remove('on');document.getElementById('solS').textContent='离线';solRD=Math.min(solRD*2,30000);setTimeout(connSOL,solRD)};
+  solWs.onerror=()=>{solWs.close()}}
 
-function fmtTime(ts) {
-  if (!ts) return '';
-  const d = new Date(ts);
-  return d.toLocaleTimeString('zh-CN',{hour12:false})+' '+d.toLocaleDateString('zh-CN',{month:'2-digit',day:'2-digit'});
-}
-
-function copyAddr(addr) {
-  navigator.clipboard.writeText(addr).then(() => {
-    const t = document.getElementById('toast'); t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 1200);
-  });
-}
-
-function renderMatches() {
-  const el = document.getElementById('matchList');
-  const list = filter === 'all' ? matches : matches.filter(m => m.chain === filter);
-  if (!list.length) {
-    el.innerHTML = '<div class="empty"><div class="ico">&#128269;</div><p>No matches yet</p></div>';
-    return;
-  }
-  el.innerHTML = list.map((m, i) => `
-    <div class="card ${i===0?'flash':''}">
-      <div class="card-hdr">
-        <span class="tname">${esc(m.name)} (${esc(m.symbol||'')})</span>
-        <span class="tag ${m.chain}">${m.chain.toUpperCase()}</span>
-      </div>
-      <div class="row"><span class="lbl">Contract:</span><span class="val"><span class="addr" onclick="copyAddr('${esc(m.contractAddress)}')" title="Click to copy">${esc(m.contractAddress)}</span></span></div>
-      <div class="row"><span class="lbl">Twitter:</span><span class="val"><a href="https://x.com/${esc(m.twitter)}" target="_blank">@${esc(m.twitter)}</a></span></div>
-      ${m.marketCap?`<div class="row"><span class="lbl">Market Cap:</span><span class="val">${esc(m.marketCap)}</span></div>`:''}
-      ${(m.matchedTweets||[]).map(t=>`<div class="tweet-box">${highlightAddr(esc(t), esc(m.contractAddress))}</div>`).join('')}
-      ${m.matchedInBio?'<div class="tweet-box" style="border-left-color:#1e88e5">Found in profile bio</div>':''}
-      <div class="time">${fmtTime(m.timestamp)}</div>
-    </div>
-  `).join('');
-}
-
-function highlightAddr(text, addr) {
-  if (!addr || addr.length < 10) return text;
-  const idx = text.toLowerCase().indexOf(addr.toLowerCase());
-  if (idx === -1) return text;
-  return text.substring(0, idx) + '<span class="highlight">' + text.substring(idx, idx + addr.length) + '</span>' + text.substring(idx + addr.length);
-}
-
-function renderFeed() {
-  const el = document.getElementById('feedList');
-  const list = filter === 'all' ? feeds : feeds.filter(f => f.chain === filter);
-  if (!list.length) {
-    el.innerHTML = '<div class="empty"><div class="ico">&#9201;</div><p>Waiting for tokens...</p></div>';
-    return;
-  }
-  el.innerHTML = list.slice(0, 150).map(f => `
-    <div class="feed ${f.twitter?'tw':''} ${f.checking?'ck':''}">
-      <div class="feed-n">${esc(f.name)} <span class="tag ${f.chain}" style="font-size:9px">${f.chain.toUpperCase()}</span></div>
-      <div class="feed-d">${f.contractAddress?esc(f.contractAddress.substring(0,6))+'...'+esc(f.contractAddress.slice(-4)):'?'} ${f.twitter?'| @'+esc(f.twitter):''} | ${fmtTime(f.timestamp)}</div>
-    </div>
-  `).join('');
-}
-
-// ==================== SOL: PumpPortal WebSocket ====================
-let solWs = null;
-let solReconnectDelay = 1000;
-
-function connectSolana() {
-  log('Connecting to PumpPortal WebSocket (SOL)...');
-  try {
-    solWs = new WebSocket('wss://pumpportal.fun/api/data');
-  } catch(e) {
-    log('WebSocket creation failed: ' + e.message, 'err');
-    setTimeout(connectSolana, solReconnectDelay);
-    return;
-  }
-
-  solWs.onopen = () => {
-    log('SOL WebSocket connected', 'ok');
-    document.getElementById('solDot').classList.add('on');
-    document.getElementById('solSt').textContent = 'LIVE';
-    solReconnectDelay = 1000;
-    solWs.send(JSON.stringify({ method: 'subscribeNewToken' }));
-  };
-
-  solWs.onmessage = async (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      if (!data.mint) return; // not a token creation event
-
-      nScan++;
-      const token = {
-        name: data.name || data.symbol || 'Unknown',
-        symbol: data.symbol || '',
-        contractAddress: data.mint,
-        chain: 'sol',
-        twitter: null,
-        marketCap: data.marketCapSol ? `${Number(data.marketCapSol).toFixed(1)} SOL` : null,
-        uri: data.uri || null,
-        timestamp: Date.now(),
-      };
-
-      // Add to feed
-      feeds.unshift(token);
-      if (feeds.length > 500) feeds = feeds.slice(0, 500);
-      renderFeed();
-      updateStats();
-
-      // Fetch IPFS metadata to get Twitter handle
-      if (token.uri) {
-        fetchTokenMetadata(token);
-      }
-    } catch(e) {
-      // ignore parse errors
+// 获取IPFS元数据提取推特账号
+async function fetchMeta(tk){
+  let url=tk.uri;if(!url)return;
+  if(url.startsWith('ipfs://'))url='https://ipfs.io/ipfs/'+url.slice(7);
+  try{
+    let d=null;
+    // 直接获取
+    try{const r=await fetch(url,{signal:AbortSignal.timeout(6000)});if(r.ok)d=await r.json()}catch(e){
+      // CORS代理兜底
+      for(const px of PXS){try{const r=await fetch(px(url),{signal:AbortSignal.timeout(6000)});if(r.ok){d=await r.json();break}}catch(e2){}}
     }
-  };
+    if(!d)return;
+    let tw=d.twitter||d.x||'';
+    if(!tw&&d.extensions)tw=d.extensions.twitter||d.extensions.x||'';
+    if(!tw&&d.social)tw=d.social.twitter||d.social.x||'';
+    if(tw){
+      const m=tw.match(/(?:twitter\.com|x\.com)\/([A-Za-z0-9_]+)/);
+      tw=m?m[1]:tw.replace(/^@/,'').replace(/^https?:\/\//,'').split('/')[0].trim();
+      if(tw&&tw.length>=2&&tw.length<=15){
+        tk.tw=tw;const i=feeds.findIndex(f=>f.ca===tk.ca);if(i>=0)feeds[i].tw=tw;rF();
+        enqueue(tk)}}
+  }catch(e){}}
 
-  solWs.onclose = () => {
-    log('SOL WebSocket disconnected, reconnecting...', 'warn');
-    document.getElementById('solDot').classList.remove('on');
-    document.getElementById('solSt').textContent = 'OFF';
-    solReconnectDelay = Math.min(solReconnectDelay * 2, 30000);
-    setTimeout(connectSolana, solReconnectDelay);
-  };
+// ===== BSC链: GeckoTerminal新池子 =====
+let bscSeen=new Set();
+async function startBSC(){
+  L('正在启动BSC扫描 (GeckoTerminal)...');
+  document.getElementById('bscD').classList.add('on');
+  document.getElementById('bscS').textContent='轮询中';
+  pollBSC()}
 
-  solWs.onerror = () => { solWs.close(); };
-}
+async function pollBSC(){
+  try{
+    let data=null;
+    const url='https://api.geckoterminal.com/api/v2/networks/bsc/new_pools?include=base_token&page=1';
+    // 直接获取(GeckoTerminal支持CORS)
+    try{const r=await fetch(url,{signal:AbortSignal.timeout(12000),headers:{Accept:'application/json'}});if(r.ok)data=await r.json()}catch(e){
+      L('GeckoTerminal直连失败，尝试代理...','warn');
+      for(const px of PXS){try{const r=await fetch(px(url),{signal:AbortSignal.timeout(12000)});if(r.ok){data=await r.json();break}}catch(e2){}}}
 
-async function fetchTokenMetadata(token) {
-  let url = token.uri;
-  if (!url) return;
+    if(data&&data.data&&Array.isArray(data.data)){
+      L(`BSC获取到 ${data.data.length} 个新池子`,'ok');
 
-  // Normalize IPFS URL
-  if (url.startsWith('ipfs://')) {
-    url = 'https://ipfs.io/ipfs/' + url.slice(7);
-  }
-  // Use CORS-friendly IPFS gateway
-  if (url.includes('cf-ipfs.com') || url.includes('ipfs.io') || url.includes('nftstorage.link')) {
-    // These should be CORS-friendly
-  } else if (url.includes('arweave.net')) {
-    // Arweave should be CORS-friendly
-  }
+      // 构建included里的token信息映射
+      const tokenMap={};
+      if(data.included&&Array.isArray(data.included)){
+        for(const inc of data.included){
+          if(inc.type==='token'&&inc.attributes){tokenMap[inc.id]=inc.attributes}}}
 
-  try {
-    let data = null;
+      for(const pool of data.data){
+        const attr=pool.attributes||{};
+        const rel=pool.relationships||{};
+        const btId=rel.base_token&&rel.base_token.data?rel.base_token.data.id:'';
+        // btId格式: "bsc_0xADDRESS"
+        const addr=btId.startsWith('bsc_')?btId.slice(4):btId;
+        if(!addr||bscSeen.has(addr))continue;
+        bscSeen.add(addr);
 
-    // Try direct fetch first
-    try {
-      const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
-      if (resp.ok) data = await resp.json();
-    } catch(e) {
-      // Try through CORS proxy
-      for (const proxy of CORS_PROXIES) {
-        try {
-          const resp = await fetch(proxy(url), { signal: AbortSignal.timeout(8000) });
-          if (resp.ok) { data = await resp.json(); break; }
-        } catch(e2) { continue; }
-      }
-    }
+        // 从included获取token名
+        const tInfo=tokenMap[btId]||{};
+        const name=tInfo.name||tInfo.symbol||attr.name||'未知';
 
-    if (!data) return;
+        const tk={name,ca:addr,chain:'bsc',tw:null,mc:attr.fdv_usd?'$'+Number(attr.fdv_usd).toLocaleString():null,ts:Date.now()};
+        addFeed(tk);
 
-    // Extract twitter handle from metadata
-    let tw = data.twitter || data.x || '';
-    if (!tw && data.extensions) {
-      tw = data.extensions.twitter || data.extensions.x || '';
-    }
-    if (!tw && data.social) {
-      tw = data.social.twitter || data.social.x || '';
-    }
+        // 尝试从DexScreener获取推特
+        lookupBscTwitter(tk)}}
+    else{L('BSC数据为空或格式异常','warn')}
+  }catch(e){L('BSC轮询出错: '+e.message,'err')}
+  setTimeout(pollBSC,15000)}// 每15秒
 
-    if (tw) {
-      // Clean: extract handle from URL or @mention
-      const m = tw.match(/(?:twitter\.com|x\.com)\/([A-Za-z0-9_]+)/);
-      tw = m ? m[1] : tw.replace(/^@/, '').replace(/^https?:\/\//, '').trim();
+// 从DexScreener查询BSC代币的社交链接
+async function lookupBscTwitter(tk){
+  try{
+    const url=`https://api.dexscreener.com/latest/dex/tokens/${tk.ca}`;
+    let data=null;
+    try{const r=await fetch(url,{signal:AbortSignal.timeout(8000)});if(r.ok)data=await r.json()}catch(e){
+      for(const px of PXS){try{const r=await fetch(px(url),{signal:AbortSignal.timeout(8000)});if(r.ok){data=await r.json();break}}catch(e2){}}}
+    if(!data||!data.pairs)return;
+    for(const pair of data.pairs){
+      if(!pair.info||!pair.info.socials)continue;
+      for(const s of pair.info.socials){
+        if(s.type==='twitter'&&s.url){
+          const m=s.url.match(/(?:twitter\.com|x\.com)\/([A-Za-z0-9_]+)/);
+          if(m){
+            tk.tw=m[1];const i=feeds.findIndex(f=>f.ca===tk.ca);if(i>=0)feeds[i].tw=m[1];rF();
+            enqueue(tk);return}}}}
+  }catch(e){}}
 
-      if (tw && tw.length >= 2 && tw.length <= 15) {
-        token.twitter = tw;
-        // Update feed display
-        const idx = feeds.findIndex(f => f.contractAddress === token.contractAddress);
-        if (idx >= 0) feeds[idx].twitter = tw;
-        renderFeed();
+// ===== 推特验证 =====
+function enqueue(tk){
+  if(!tk.tw||!tk.ca||tk.ca.includes('...'))return;
+  if(cache.has(tk.ca)&&Date.now()-cache.get(tk.ca).ts<CTTL)return;
+  Q.push(tk);uS();if(!qRun)processQ()}
 
-        // Queue for Twitter check
-        queueTwitterCheck(token);
-      }
-    }
-  } catch(e) {
-    // metadata fetch failed, ignore
-  }
-}
+async function processQ(){
+  if(qRun||!Q.length)return;qRun=true;
+  while(Q.length>0){
+    const tk=Q.shift();uS();
+    try{await checkTw(tk)}catch(e){L(`推特检查出错 @${tk.tw}: ${e.message}`,'err')}
+    nC++;uS();await sleep(CI)}
+  qRun=false}
 
-// ==================== BSC: DexScreener Polling ====================
-let bscSeenAddrs = new Set();
-let bscPollTimer = null;
+async function checkTw(tk){
+  const h=tk.tw,addr=tk.ca;
+  L(`检查 @${h} 是否发布合约 ${addr.substring(0,8)}...`);
+  const fi=feeds.findIndex(f=>f.ca===addr);
+  if(fi>=0){feeds[fi].ck=true;rF()}
 
-async function startBSCPolling() {
-  log('Starting BSC token polling via DexScreener...');
-  document.getElementById('bscDot').classList.add('on');
-  document.getElementById('bscSt').textContent = 'POLL';
-  pollBSCTokens();
-}
+  let mTw=[],mBio=false,ok=false;
 
-async function pollBSCTokens() {
-  try {
-    // DexScreener latest token profiles - try direct fetch
-    let data = null;
-    const url = 'https://api.dexscreener.com/token-profiles/latest/v1';
+  // === 策略1: Nitter RSS (最可靠) ===
+  for(const host of NITTER_RSS){
+    if(ok)break;
+    const rssUrl=`${host}/${h}/rss`;
+    for(const px of PXS){
+      try{
+        const r=await fetch(px(rssUrl),{signal:AbortSignal.timeout(8000)});
+        if(!r.ok)continue;
+        const xml=await r.text();
+        if(!xml||xml.length<50||!xml.includes('<'))continue;
+        // 解析RSS中的推文
+        const items=xml.match(/<item>[\s\S]*?<\/item>/gi)||[];
+        for(const item of items.slice(0,5)){
+          const desc=item.match(/<description><!\[CDATA\[([\s\S]*?)\]\]>/i)||item.match(/<description>([\s\S]*?)<\/description>/i);
+          const title=item.match(/<title><!\[CDATA\[([\s\S]*?)\]\]>/i)||item.match(/<title>([\s\S]*?)<\/title>/i);
+          const text=((desc?desc[1]:'')+(title?title[1]:'')).replace(/<[^>]+>/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/\s+/g,' ').trim();
+          if(text.toLowerCase().includes(addr.toLowerCase())){mTw.push(text.substring(0,500))}}
+        ok=true;L(`RSS获取成功: ${host}`,'ok');break;
+      }catch(e){continue}}}
 
-    try {
-      const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
-      if (resp.ok) data = await resp.json();
-    } catch(e) {
-      // Try CORS proxy
-      for (const proxy of CORS_PROXIES) {
-        try {
-          const resp = await fetch(proxy(url), { signal: AbortSignal.timeout(10000) });
-          if (resp.ok) { data = await resp.json(); break; }
-        } catch(e2) { continue; }
-      }
-    }
+  // === 策略2: Nitter HTML页面 ===
+  if(!ok){
+    for(const host of NITTER_RSS){
+      if(ok)break;
+      for(const px of PXS){
+        try{
+          const r=await fetch(px(`${host}/${h}`),{signal:AbortSignal.timeout(8000)});
+          if(!r.ok)continue;
+          const html=await r.text();
+          if(!html||html.length<200)continue;
+          // 提取推文内容
+          const tws=[];
+          const pats=[/<div[^>]*class="[^"]*tweet-content[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,/<p[^>]*class="[^"]*tweet-text[^"]*"[^>]*>([\s\S]*?)<\/p>/gi];
+          for(const p of pats){let m;while((m=p.exec(html))!==null&&tws.length<5){const t=m[1].replace(/<[^>]+>/g,' ').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim();if(t.length>5)tws.push(t)}}
+          // 兜底：全文搜索
+          if(tws.length===0){const ft=html.replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<style[\s\S]*?<\/style>/gi,'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ');tws.push(ft.substring(0,3000))}
+          for(const t of tws){if(t.toLowerCase().includes(addr.toLowerCase()))mTw.push(t.substring(0,500))}
+          // 检查bio
+          const bioM=html.match(/<div[^>]*class="[^"]*profile-bio[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+          if(bioM){const bio=bioM[1].replace(/<[^>]+>/g,' ').trim();if(bio.toLowerCase().includes(addr.toLowerCase()))mBio=true}
+          ok=true;break;
+        }catch(e){continue}}}}
 
-    if (data && Array.isArray(data)) {
-      for (const item of data) {
-        // Filter for BSC chain
-        if (item.chainId !== 'bsc' && item.chainId !== 'solana') continue;
-        const chain = item.chainId === 'solana' ? 'sol' : 'bsc';
+  // === 策略3: Twitter syndication ===
+  if(!ok){
+    const synUrl=`https://syndication.twitter.com/srv/timeline-profile/screen-name/${h}`;
+    for(const px of PXS){
+      try{
+        const r=await fetch(px(synUrl),{signal:AbortSignal.timeout(8000)});
+        if(!r.ok)continue;
+        const html=await r.text();
+        if(!html||html.length<100)continue;
+        const text=html.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ');
+        if(text.toLowerCase().includes(addr.toLowerCase()))mTw.push('[在推特时间线中找到合约地址]');
+        ok=true;break;
+      }catch(e){continue}}}
 
-        const addr = item.tokenAddress;
-        if (!addr || bscSeenAddrs.has(addr)) continue;
-        bscSeenAddrs.add(addr);
+  cache.set(addr,{ts:Date.now(),hit:mTw.length>0||mBio});
+  if(fi>=0){feeds[fi].ck=false;rF()}
 
-        nScan++;
+  if(mTw.length>0||mBio){
+    nM++;
+    matches.unshift({name:tk.name,ca:addr,chain:tk.chain,tw:h,mc:tk.mc,mTw,mBio,ts:Date.now()});
+    rM();uS();beep();
+    L(`匹配成功! @${h} 发布了合约 ${addr.substring(0,12)}...`,'match');
+    if(Notification.permission==='granted')new Notification('合约匹配!',{body:`${tk.name} (@${h}) - ${tk.chain.toUpperCase()}\n${addr}`})
+  }else if(ok){L(`未匹配: @${h}`)}
+  else{L(`无法获取 @${h} 的推文(所有代理失败)`,'warn')}}
 
-        // Extract twitter from links
-        let twitter = null;
-        if (item.links && Array.isArray(item.links)) {
-          for (const link of item.links) {
-            if (link.type === 'twitter' || link.label === 'twitter') {
-              const m = (link.url || '').match(/(?:twitter\.com|x\.com)\/([A-Za-z0-9_]+)/);
-              if (m) twitter = m[1];
-            }
-          }
-        }
+function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
 
-        const token = {
-          name: item.description ? item.description.substring(0, 30) : (item.symbol || addr.substring(0, 8)),
-          symbol: item.symbol || '',
-          contractAddress: addr,
-          chain,
-          twitter,
-          marketCap: null,
-          timestamp: Date.now(),
-        };
-
-        feeds.unshift(token);
-        if (feeds.length > 500) feeds = feeds.slice(0, 500);
-        renderFeed();
-        updateStats();
-
-        if (twitter) {
-          queueTwitterCheck(token);
-        }
-      }
-    }
-  } catch(e) {
-    log('BSC poll error: ' + e.message, 'err');
-  }
-
-  // Poll every 10 seconds
-  bscPollTimer = setTimeout(pollBSCTokens, 10000);
-}
-
-// ==================== TWITTER CHECKING ====================
-function queueTwitterCheck(token) {
-  if (!token.twitter || !token.contractAddress) return;
-  if (token.contractAddress.includes('...')) return;
-
-  // Check cache
-  const ck = token.contractAddress;
-  const cached = checkedCache.get(ck);
-  if (cached && Date.now() - cached.ts < CACHE_TTL) return;
-
-  checkQueue.push(token);
-  updateStats();
-
-  if (!checking) processQueue();
-}
-
-async function processQueue() {
-  if (checking || checkQueue.length === 0) return;
-  checking = true;
-
-  while (checkQueue.length > 0) {
-    const token = checkQueue.shift();
-    updateStats();
-
-    try {
-      await checkTwitterForContract(token);
-    } catch(e) {
-      log(`Twitter check error @${token.twitter}: ${e.message}`, 'err');
-    }
-
-    nCheck++;
-    updateStats();
-
-    // Wait CHECK_INTERVAL between requests
-    await sleep(CHECK_INTERVAL);
-  }
-
-  checking = false;
-}
-
-async function checkTwitterForContract(token) {
-  const handle = token.twitter;
-  const addr = token.contractAddress;
-
-  log(`Checking @${handle} for ${addr.substring(0,8)}...`);
-
-  // Mark as checking in feed
-  const fi = feeds.findIndex(f => f.contractAddress === addr);
-  if (fi >= 0) { feeds[fi].checking = true; renderFeed(); }
-
-  let matchedTweets = [];
-  let matchedInBio = false;
-  let success = false;
-
-  // Try each nitter host with each CORS proxy
-  for (const host of NITTER_HOSTS) {
-    if (success) break;
-    const nitterUrl = `${host}/${handle}`;
-
-    for (const proxy of CORS_PROXIES) {
-      try {
-        const resp = await fetch(proxy(nitterUrl), {
-          signal: AbortSignal.timeout(10000),
-          headers: { 'Accept': 'text/html' },
-        });
-
-        if (!resp.ok) continue;
-        const html = await resp.text();
-        if (!html || html.length < 100) continue;
-
-        // Parse tweet content from nitter HTML
-        const tweets = parseNitterTweets(html);
-        const bio = parseNitterBio(html);
-
-        // Check if any tweet contains the contract address
-        for (const tweet of tweets) {
-          if (tweet.toLowerCase().includes(addr.toLowerCase())) {
-            matchedTweets.push(tweet);
-          }
-        }
-
-        // Check bio
-        if (bio && bio.toLowerCase().includes(addr.toLowerCase())) {
-          matchedInBio = true;
-        }
-
-        success = true;
-        break;
-      } catch(e) {
-        continue;
-      }
-    }
-  }
-
-  // Also try Twitter syndication API as fallback
-  if (!success) {
-    try {
-      const synUrl = `https://syndication.twitter.com/srv/timeline-profile/screen-name/${handle}`;
-      for (const proxy of CORS_PROXIES) {
-        try {
-          const resp = await fetch(proxy(synUrl), { signal: AbortSignal.timeout(10000) });
-          if (!resp.ok) continue;
-          const html = await resp.text();
-          if (!html || html.length < 100) continue;
-
-          // Simple text extraction from syndication HTML
-          const textContent = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-          if (textContent.toLowerCase().includes(addr.toLowerCase())) {
-            matchedTweets.push('[Found in Twitter timeline]');
-          }
-          success = true;
-          break;
-        } catch(e) { continue; }
-      }
-    } catch(e) {}
-  }
-
-  // Cache result
-  checkedCache.set(addr, { ts: Date.now(), matched: matchedTweets.length > 0 || matchedInBio });
-
-  // Unmark checking
-  if (fi >= 0) { feeds[fi].checking = false; renderFeed(); }
-
-  // If matched!
-  if (matchedTweets.length > 0 || matchedInBio) {
-    nMatch++;
-    const matchData = {
-      name: token.name,
-      symbol: token.symbol,
-      contractAddress: addr,
-      chain: token.chain,
-      twitter: handle,
-      marketCap: token.marketCap,
-      matchedTweets,
-      matchedInBio,
-      timestamp: Date.now(),
-    };
-
-    matches.unshift(matchData);
-    renderMatches();
-    updateStats();
-    playSound();
-    log(`MATCH! @${handle} posted contract ${addr.substring(0,12)}...`, 'match');
-
-    // Browser notification
-    if (Notification.permission === 'granted') {
-      new Notification('Contract Match!', {
-        body: `${token.name} (@${handle}) - ${token.chain.toUpperCase()}\n${addr}`,
-      });
-    }
-  } else if (success) {
-    log(`No match: @${handle}`, 'info');
-  } else {
-    log(`Could not fetch @${handle} tweets (all proxies failed)`, 'warn');
-  }
-}
-
-// ==================== HTML PARSERS ====================
-function parseNitterTweets(html) {
-  const tweets = [];
-  // Nitter tweet content is in <div class="tweet-content"> or similar
-  const patterns = [
-    /<div[^>]*class="[^"]*tweet-content[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
-    /<p[^>]*class="[^"]*tweet-text[^"]*"[^>]*>([\s\S]*?)<\/p>/gi,
-    /<div[^>]*class="[^"]*timeline-item-content[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
-  ];
-
-  for (const pat of patterns) {
-    let m;
-    while ((m = pat.exec(html)) !== null && tweets.length < 5) {
-      const text = m[1].replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
-      if (text.length > 5 && text.length < 2000) {
-        tweets.push(text);
-      }
-    }
-  }
-
-  // Fallback: just search the entire HTML text
-  if (tweets.length === 0) {
-    const textOnly = html.replace(/<script[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[\s\S]*?<\/style>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ');
-    // Don't return the whole page as one "tweet", just use it for address matching
-    tweets.push(textOnly.substring(0, 5000));
-  }
-
-  return tweets;
-}
-
-function parseNitterBio(html) {
-  const m = html.match(/<div[^>]*class="[^"]*profile-bio[^"]*"[^>]*>([\s\S]*?)<\/div>/i)
-    || html.match(/<p[^>]*class="[^"]*bio[^"]*"[^>]*>([\s\S]*?)<\/p>/i);
-  if (m) {
-    return m[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-  }
-  return '';
-}
-
-// ==================== UTILS ====================
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-// ==================== STARTUP ====================
-log('Meme Coin Twitter Scanner starting...', 'ok');
-connectSolana();
-startBSCPolling();
-
-// Periodic cache cleanup
-setInterval(() => {
-  const now = Date.now();
-  for (const [k, v] of checkedCache) {
-    if (now - v.ts > CACHE_TTL) checkedCache.delete(k);
-  }
-}, 5 * 60 * 1000);
+// ===== 启动 =====
+L('推特CA扫描神器启动中...','ok');
+connSOL();
+startBSC();
+setInterval(()=>{const now=Date.now();for(const[k,v]of cache){if(now-v.ts>CTTL)cache.delete(k)}},5*60000);
 </script>
 </body>
 </html>
