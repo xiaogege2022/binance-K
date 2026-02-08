@@ -1,628 +1,678 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Meme Coin Twitter Scanner</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      background: #0b0e11;
-      color: #eaecef;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      min-height: 100vh;
-    }
-
-    .header {
-      background: #1a1d23;
-      border-bottom: 1px solid #2b2f36;
-      padding: 16px 24px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-
-    .header h1 {
-      font-size: 20px;
-      color: #00c853;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .status-bar {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      font-size: 13px;
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      display: inline-block;
-      margin-right: 4px;
-    }
-
-    .status-dot.connected { background: #00c853; }
-    .status-dot.disconnected { background: #f44336; }
-
-    .controls {
-      background: #1a1d23;
-      border-bottom: 1px solid #2b2f36;
-      padding: 12px 24px;
-      display: flex;
-      gap: 12px;
-      align-items: center;
-    }
-
-    .chain-filter {
-      display: flex;
-      gap: 8px;
-    }
-
-    .chain-btn {
-      padding: 6px 16px;
-      border-radius: 6px;
-      border: 1px solid #2b2f36;
-      background: transparent;
-      color: #848e9c;
-      cursor: pointer;
-      font-size: 13px;
-      transition: all 0.2s;
-    }
-
-    .chain-btn.active {
-      background: #00c853;
-      color: #000;
-      border-color: #00c853;
-      font-weight: 600;
-    }
-
-    .chain-btn:hover:not(.active) {
-      border-color: #848e9c;
-      color: #eaecef;
-    }
-
-    .stats {
-      margin-left: auto;
-      display: flex;
-      gap: 24px;
-      font-size: 13px;
-      color: #848e9c;
-    }
-
-    .stat-value {
-      color: #eaecef;
-      font-weight: 600;
-    }
-
-    .main {
-      display: flex;
-      height: calc(100vh - 110px);
-    }
-
-    /* Match panel (left - main) */
-    .match-panel {
-      flex: 2;
-      overflow-y: auto;
-      padding: 16px;
-      border-right: 1px solid #2b2f36;
-    }
-
-    .match-panel h2 {
-      font-size: 16px;
-      color: #00c853;
-      margin-bottom: 12px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid #2b2f36;
-    }
-
-    .match-card {
-      background: #1a1d23;
-      border: 1px solid #00c853;
-      border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 12px;
-      animation: slideIn 0.3s ease;
-    }
-
-    .match-card.new {
-      animation: flashGreen 1s ease;
-    }
-
-    @keyframes slideIn {
-      from { transform: translateY(-10px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
-
-    @keyframes flashGreen {
-      0% { border-color: #00ff6a; box-shadow: 0 0 20px rgba(0, 200, 83, 0.5); }
-      100% { border-color: #00c853; box-shadow: none; }
-    }
-
-    .match-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-
-    .token-name {
-      font-size: 16px;
-      font-weight: 700;
-      color: #fff;
-    }
-
-    .chain-tag {
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
-
-    .chain-tag.sol {
-      background: rgba(153, 69, 255, 0.2);
-      color: #b388ff;
-    }
-
-    .chain-tag.bsc {
-      background: rgba(243, 186, 47, 0.2);
-      color: #f3ba2f;
-    }
-
-    .match-row {
-      display: flex;
-      align-items: flex-start;
-      margin-bottom: 6px;
-      font-size: 13px;
-    }
-
-    .match-label {
-      color: #848e9c;
-      min-width: 80px;
-      flex-shrink: 0;
-    }
-
-    .match-value {
-      color: #eaecef;
-      word-break: break-all;
-    }
-
-    .match-value a {
-      color: #1e88e5;
-      text-decoration: none;
-    }
-
-    .match-value a:hover { text-decoration: underline; }
-
-    .contract-addr {
-      font-family: 'Courier New', monospace;
-      font-size: 12px;
-      background: #0b0e11;
-      padding: 2px 6px;
-      border-radius: 3px;
-      cursor: pointer;
-    }
-
-    .contract-addr:hover {
-      background: #2b2f36;
-    }
-
-    .matched-tweet {
-      background: #0b0e11;
-      border-left: 3px solid #00c853;
-      padding: 8px 12px;
-      margin-top: 8px;
-      border-radius: 0 4px 4px 0;
-      font-size: 13px;
-      color: #b7bdc6;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-
-    .match-time {
-      color: #848e9c;
-      font-size: 11px;
-      text-align: right;
-      margin-top: 6px;
-    }
-
-    /* Live feed panel (right) */
-    .feed-panel {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px;
-    }
-
-    .feed-panel h2 {
-      font-size: 16px;
-      color: #848e9c;
-      margin-bottom: 12px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid #2b2f36;
-    }
-
-    .feed-item {
-      padding: 8px 12px;
-      margin-bottom: 6px;
-      border-radius: 6px;
-      background: #1a1d23;
-      font-size: 12px;
-      border-left: 3px solid #2b2f36;
-    }
-
-    .feed-item.has-twitter {
-      border-left-color: #1e88e5;
-    }
-
-    .feed-item.checking {
-      border-left-color: #ff9800;
-    }
-
-    .feed-name {
-      font-weight: 600;
-      color: #eaecef;
-      margin-bottom: 2px;
-    }
-
-    .feed-details {
-      color: #848e9c;
-      font-size: 11px;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 60px 20px;
-      color: #848e9c;
-    }
-
-    .empty-state .icon {
-      font-size: 48px;
-      margin-bottom: 16px;
-    }
-
-    /* Sound toggle */
-    .sound-toggle {
-      padding: 6px 12px;
-      border-radius: 6px;
-      border: 1px solid #2b2f36;
-      background: transparent;
-      color: #848e9c;
-      cursor: pointer;
-      font-size: 13px;
-    }
-
-    .sound-toggle.on {
-      border-color: #00c853;
-      color: #00c853;
-    }
-
-    /* Scrollbar */
-    ::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: #0b0e11;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: #2b2f36;
-      border-radius: 3px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: #848e9c;
-    }
-
-    .copy-toast {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #00c853;
-      color: #000;
-      padding: 8px 20px;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 600;
-      opacity: 0;
-      transition: opacity 0.3s;
-      pointer-events: none;
-      z-index: 999;
-    }
-
-    .copy-toast.show { opacity: 1; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meme Coin Twitter Scanner</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0b0e11;color:#eaecef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh}
+.header{background:#1a1d23;border-bottom:1px solid #2b2f36;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100}
+.header h1{font-size:18px;color:#00c853}
+.hdr-right{display:flex;align-items:center;gap:12px;font-size:13px}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px;background:#f44336}
+.status-dot.on{background:#00c853}
+.controls{background:#1a1d23;border-bottom:1px solid #2b2f36;padding:10px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.btn{padding:5px 14px;border-radius:5px;border:1px solid #2b2f36;background:0;color:#848e9c;cursor:pointer;font-size:12px;transition:.2s}
+.btn.active{background:#00c853;color:#000;border-color:#00c853;font-weight:600}
+.btn:hover:not(.active){border-color:#848e9c;color:#eaecef}
+.stats{margin-left:auto;display:flex;gap:18px;font-size:12px;color:#848e9c}
+.sv{color:#eaecef;font-weight:600}
+.main{display:flex;height:calc(100vh - 100px)}
+.panel{overflow-y:auto;padding:14px}
+.panel-left{flex:2;border-right:1px solid #2b2f36}
+.panel-right{flex:1}
+.panel h2{font-size:14px;color:#848e9c;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #2b2f36}
+.panel h2.green{color:#00c853}
+.card{background:#1a1d23;border:1px solid #00c853;border-radius:8px;padding:14px;margin-bottom:10px;animation:slideIn .3s}
+.card.flash{animation:flashG 1.5s}
+@keyframes slideIn{from{transform:translateY(-8px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes flashG{0%{border-color:#0f0;box-shadow:0 0 20px rgba(0,200,83,.5)}100%{border-color:#00c853;box-shadow:none}}
+.card-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.tname{font-size:15px;font-weight:700;color:#fff}
+.tag{padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase}
+.tag.sol{background:rgba(153,69,255,.2);color:#b388ff}
+.tag.bsc{background:rgba(243,186,47,.2);color:#f3ba2f}
+.row{display:flex;align-items:flex-start;margin-bottom:5px;font-size:12px}
+.lbl{color:#848e9c;min-width:72px;flex-shrink:0}
+.val{color:#eaecef;word-break:break-all}
+.val a{color:#1e88e5;text-decoration:none}
+.val a:hover{text-decoration:underline}
+.addr{font-family:'Courier New',monospace;font-size:11px;background:#0b0e11;padding:2px 5px;border-radius:3px;cursor:pointer}
+.addr:hover{background:#2b2f36}
+.tweet-box{background:#0b0e11;border-left:3px solid #00c853;padding:7px 10px;margin-top:6px;border-radius:0 4px 4px 0;font-size:12px;color:#b7bdc6;white-space:pre-wrap;word-break:break-word}
+.time{color:#848e9c;font-size:10px;text-align:right;margin-top:4px}
+.feed{padding:6px 10px;margin-bottom:4px;border-radius:5px;background:#1a1d23;font-size:11px;border-left:3px solid #2b2f36}
+.feed.tw{border-left-color:#1e88e5}
+.feed.ck{border-left-color:#ff9800}
+.feed-n{font-weight:600;color:#eaecef;margin-bottom:1px}
+.feed-d{color:#848e9c;font-size:10px}
+.empty{text-align:center;padding:50px 20px;color:#848e9c}
+.empty .ico{font-size:40px;margin-bottom:12px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#00c853;color:#000;padding:7px 18px;border-radius:5px;font-size:12px;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999}
+.toast.show{opacity:1}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:#0b0e11}
+::-webkit-scrollbar-thumb{background:#2b2f36;border-radius:3px}
+.log-box{background:#0b0e11;border:1px solid #2b2f36;border-radius:6px;padding:10px;margin:10px 20px;max-height:120px;overflow-y:auto;font-family:monospace;font-size:11px;color:#848e9c;display:none}
+.log-box.show{display:block}
+.highlight{color:#ff0;background:rgba(255,255,0,.15);padding:0 2px;border-radius:2px}
+</style>
 </head>
 <body>
-  <div class="header">
-    <h1>Meme Coin Twitter Scanner</h1>
-    <div class="status-bar">
-      <span><span class="status-dot disconnected" id="statusDot"></span><span id="statusText">Connecting...</span></span>
-      <button class="sound-toggle" id="soundBtn" onclick="toggleSound()">Sound: OFF</button>
-    </div>
-  </div>
 
-  <div class="controls">
-    <div class="chain-filter">
-      <button class="chain-btn active" data-chain="all" onclick="setFilter('all', this)">ALL</button>
-      <button class="chain-btn" data-chain="sol" onclick="setFilter('sol', this)">SOL</button>
-      <button class="chain-btn" data-chain="bsc" onclick="setFilter('bsc', this)">BSC</button>
-    </div>
-    <div class="stats">
-      <span>Matches: <span class="stat-value" id="matchCount">0</span></span>
-      <span>Scanned: <span class="stat-value" id="scanCount">0</span></span>
-      <span>Checking: <span class="stat-value" id="checkingCount">0</span></span>
-    </div>
+<div class="header">
+  <h1>Meme Coin Twitter Scanner</h1>
+  <div class="hdr-right">
+    <span><span class="status-dot" id="solDot"></span>SOL: <span id="solSt">OFF</span></span>
+    <span><span class="status-dot" id="bscDot"></span>BSC: <span id="bscSt">OFF</span></span>
+    <button class="btn" id="soundBtn" onclick="toggleSound()">Sound OFF</button>
+    <button class="btn" onclick="toggleLog()">Log</button>
   </div>
+</div>
 
-  <div class="main">
-    <div class="match-panel" id="matchPanel">
-      <h2>Contract Address Matches</h2>
-      <div id="matchList">
-        <div class="empty-state">
-          <div class="icon">&#128269;</div>
-          <p>Waiting for matches...</p>
-          <p style="margin-top:8px;font-size:12px">When a new coin's Twitter posts its contract address, it will appear here</p>
-        </div>
+<div class="controls">
+  <button class="btn active" data-c="all" onclick="setFilter('all',this)">ALL</button>
+  <button class="btn" data-c="sol" onclick="setFilter('sol',this)">SOL</button>
+  <button class="btn" data-c="bsc" onclick="setFilter('bsc',this)">BSC</button>
+  <div class="stats">
+    <span>Matches: <span class="sv" id="nMatch">0</span></span>
+    <span>Scanned: <span class="sv" id="nScan">0</span></span>
+    <span>Checked: <span class="sv" id="nCheck">0</span></span>
+    <span>Queue: <span class="sv" id="nQueue">0</span></span>
+  </div>
+</div>
+
+<div class="log-box" id="logBox"></div>
+
+<div class="main">
+  <div class="panel panel-left">
+    <h2 class="green">Contract Address Matches</h2>
+    <div id="matchList"><div class="empty"><div class="ico">&#128269;</div><p>Waiting for matches...</p><p style="margin-top:6px;font-size:11px">When a new coin's Twitter posts its contract address, it will appear here</p></div></div>
+  </div>
+  <div class="panel panel-right">
+    <h2>Live New Tokens</h2>
+    <div id="feedList"><div class="empty"><div class="ico">&#9201;</div><p>Connecting to data sources...</p></div></div>
+  </div>
+</div>
+
+<div class="toast" id="toast">Copied!</div>
+
+<script>
+// ==================== STATE ====================
+let filter = 'all';
+let soundOn = false;
+let matches = [];
+let feeds = [];
+let nScan = 0, nCheck = 0, nMatch = 0;
+let audioCtx = null;
+
+// Twitter check queue
+const checkQueue = [];
+let checking = false;
+const checkedCache = new Map(); // contractAddr -> { ts, result }
+const CACHE_TTL = 30 * 60 * 1000; // 30 min
+const CHECK_INTERVAL = 1000; // 1 second between twitter checks
+
+// CORS proxies (try in order)
+const CORS_PROXIES = [
+  url => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+  url => 'https://corsproxy.io/?' + encodeURIComponent(url),
+  url => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url),
+];
+
+// Nitter instances (try in order)
+const NITTER_HOSTS = [
+  'https://nitter.privacydev.net',
+  'https://xcancel.com',
+  'https://nitter.poast.org',
+  'https://nitter.woodland.cafe',
+];
+
+// ==================== LOGGING ====================
+function log(msg, type = 'info') {
+  const box = document.getElementById('logBox');
+  const colors = { info: '#848e9c', ok: '#00c853', warn: '#ff9800', err: '#f44336', match: '#00ff6a' };
+  const t = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  box.innerHTML += `<div style="color:${colors[type]||'#848e9c'}">[${t}] ${msg}</div>`;
+  box.scrollTop = box.scrollHeight;
+  if (box.children.length > 300) box.removeChild(box.firstChild);
+}
+
+function toggleLog() {
+  document.getElementById('logBox').classList.toggle('show');
+}
+
+// ==================== AUDIO ====================
+function initAudio() { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+
+function playSound() {
+  if (!soundOn || !audioCtx) return;
+  try {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.connect(g); g.connect(audioCtx.destination);
+    o.frequency.setValueAtTime(880, audioCtx.currentTime);
+    o.frequency.setValueAtTime(1100, audioCtx.currentTime + 0.1);
+    o.frequency.setValueAtTime(1320, audioCtx.currentTime + 0.2);
+    g.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+    o.start(); o.stop(audioCtx.currentTime + 0.6);
+  } catch(e) {}
+}
+
+function toggleSound() {
+  if (!audioCtx) initAudio();
+  soundOn = !soundOn;
+  const b = document.getElementById('soundBtn');
+  b.textContent = soundOn ? 'Sound ON' : 'Sound OFF';
+  b.classList.toggle('active', soundOn);
+  if (soundOn && Notification.permission === 'default') Notification.requestPermission();
+}
+
+// ==================== UI ====================
+function setFilter(c, btn) {
+  filter = c;
+  document.querySelectorAll('.controls .btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderMatches(); renderFeed();
+}
+
+function updateStats() {
+  document.getElementById('nMatch').textContent = nMatch;
+  document.getElementById('nScan').textContent = nScan;
+  document.getElementById('nCheck').textContent = nCheck;
+  document.getElementById('nQueue').textContent = checkQueue.length;
+}
+
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML;
+}
+
+function fmtTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  return d.toLocaleTimeString('zh-CN',{hour12:false})+' '+d.toLocaleDateString('zh-CN',{month:'2-digit',day:'2-digit'});
+}
+
+function copyAddr(addr) {
+  navigator.clipboard.writeText(addr).then(() => {
+    const t = document.getElementById('toast'); t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1200);
+  });
+}
+
+function renderMatches() {
+  const el = document.getElementById('matchList');
+  const list = filter === 'all' ? matches : matches.filter(m => m.chain === filter);
+  if (!list.length) {
+    el.innerHTML = '<div class="empty"><div class="ico">&#128269;</div><p>No matches yet</p></div>';
+    return;
+  }
+  el.innerHTML = list.map((m, i) => `
+    <div class="card ${i===0?'flash':''}">
+      <div class="card-hdr">
+        <span class="tname">${esc(m.name)} (${esc(m.symbol||'')})</span>
+        <span class="tag ${m.chain}">${m.chain.toUpperCase()}</span>
       </div>
+      <div class="row"><span class="lbl">Contract:</span><span class="val"><span class="addr" onclick="copyAddr('${esc(m.contractAddress)}')" title="Click to copy">${esc(m.contractAddress)}</span></span></div>
+      <div class="row"><span class="lbl">Twitter:</span><span class="val"><a href="https://x.com/${esc(m.twitter)}" target="_blank">@${esc(m.twitter)}</a></span></div>
+      ${m.marketCap?`<div class="row"><span class="lbl">Market Cap:</span><span class="val">${esc(m.marketCap)}</span></div>`:''}
+      ${(m.matchedTweets||[]).map(t=>`<div class="tweet-box">${highlightAddr(esc(t), esc(m.contractAddress))}</div>`).join('')}
+      ${m.matchedInBio?'<div class="tweet-box" style="border-left-color:#1e88e5">Found in profile bio</div>':''}
+      <div class="time">${fmtTime(m.timestamp)}</div>
     </div>
+  `).join('');
+}
 
-    <div class="feed-panel" id="feedPanel">
-      <h2>Live New Tokens</h2>
-      <div id="feedList">
-        <div class="empty-state">
-          <div class="icon">&#9201;</div>
-          <p>Waiting for new tokens...</p>
-        </div>
-      </div>
+function highlightAddr(text, addr) {
+  if (!addr || addr.length < 10) return text;
+  const idx = text.toLowerCase().indexOf(addr.toLowerCase());
+  if (idx === -1) return text;
+  return text.substring(0, idx) + '<span class="highlight">' + text.substring(idx, idx + addr.length) + '</span>' + text.substring(idx + addr.length);
+}
+
+function renderFeed() {
+  const el = document.getElementById('feedList');
+  const list = filter === 'all' ? feeds : feeds.filter(f => f.chain === filter);
+  if (!list.length) {
+    el.innerHTML = '<div class="empty"><div class="ico">&#9201;</div><p>Waiting for tokens...</p></div>';
+    return;
+  }
+  el.innerHTML = list.slice(0, 150).map(f => `
+    <div class="feed ${f.twitter?'tw':''} ${f.checking?'ck':''}">
+      <div class="feed-n">${esc(f.name)} <span class="tag ${f.chain}" style="font-size:9px">${f.chain.toUpperCase()}</span></div>
+      <div class="feed-d">${f.contractAddress?esc(f.contractAddress.substring(0,6))+'...'+esc(f.contractAddress.slice(-4)):'?'} ${f.twitter?'| @'+esc(f.twitter):''} | ${fmtTime(f.timestamp)}</div>
     </div>
-  </div>
+  `).join('');
+}
 
-  <div class="copy-toast" id="copyToast">Copied!</div>
+// ==================== SOL: PumpPortal WebSocket ====================
+let solWs = null;
+let solReconnectDelay = 1000;
 
-  <script>
-    let ws = null;
-    let soundEnabled = false;
-    let currentFilter = 'all';
-    let matchCount = 0;
-    let scanCount = 0;
-    let checkingCount = 0;
-    let matches = [];
-    let feedItems = [];
+function connectSolana() {
+  log('Connecting to PumpPortal WebSocket (SOL)...');
+  try {
+    solWs = new WebSocket('wss://pumpportal.fun/api/data');
+  } catch(e) {
+    log('WebSocket creation failed: ' + e.message, 'err');
+    setTimeout(connectSolana, solReconnectDelay);
+    return;
+  }
 
-    // Audio context for notification sound
-    let audioCtx = null;
+  solWs.onopen = () => {
+    log('SOL WebSocket connected', 'ok');
+    document.getElementById('solDot').classList.add('on');
+    document.getElementById('solSt').textContent = 'LIVE';
+    solReconnectDelay = 1000;
+    solWs.send(JSON.stringify({ method: 'subscribeNewToken' }));
+  };
 
-    function initAudio() {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
+  solWs.onmessage = async (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (!data.mint) return; // not a token creation event
 
-    function playNotificationSound() {
-      if (!soundEnabled || !audioCtx) return;
-      try {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-        osc.frequency.setValueAtTime(1100, audioCtx.currentTime + 0.1);
-        osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.2);
-        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-        osc.start(audioCtx.currentTime);
-        osc.stop(audioCtx.currentTime + 0.5);
-      } catch(e) {}
-    }
+      nScan++;
+      const token = {
+        name: data.name || data.symbol || 'Unknown',
+        symbol: data.symbol || '',
+        contractAddress: data.mint,
+        chain: 'sol',
+        twitter: null,
+        marketCap: data.marketCapSol ? `${Number(data.marketCapSol).toFixed(1)} SOL` : null,
+        uri: data.uri || null,
+        timestamp: Date.now(),
+      };
 
-    function toggleSound() {
-      if (!audioCtx) initAudio();
-      soundEnabled = !soundEnabled;
-      const btn = document.getElementById('soundBtn');
-      btn.textContent = soundEnabled ? 'Sound: ON' : 'Sound: OFF';
-      btn.className = 'sound-toggle' + (soundEnabled ? ' on' : '');
-      if (soundEnabled) {
-        // Also request notification permission
-        if (Notification.permission === 'default') {
-          Notification.requestPermission();
-        }
-      }
-    }
-
-    function setFilter(chain, btn) {
-      currentFilter = chain;
-      document.querySelectorAll('.chain-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      renderMatches();
+      // Add to feed
+      feeds.unshift(token);
+      if (feeds.length > 500) feeds = feeds.slice(0, 500);
       renderFeed();
+      updateStats();
+
+      // Fetch IPFS metadata to get Twitter handle
+      if (token.uri) {
+        fetchTokenMetadata(token);
+      }
+    } catch(e) {
+      // ignore parse errors
     }
+  };
 
-    function connect() {
-      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      ws = new WebSocket(`${protocol}//${location.host}`);
+  solWs.onclose = () => {
+    log('SOL WebSocket disconnected, reconnecting...', 'warn');
+    document.getElementById('solDot').classList.remove('on');
+    document.getElementById('solSt').textContent = 'OFF';
+    solReconnectDelay = Math.min(solReconnectDelay * 2, 30000);
+    setTimeout(connectSolana, solReconnectDelay);
+  };
 
-      ws.onopen = () => {
-        document.getElementById('statusDot').className = 'status-dot connected';
-        document.getElementById('statusText').textContent = 'Connected';
-      };
+  solWs.onerror = () => { solWs.close(); };
+}
 
-      ws.onclose = () => {
-        document.getElementById('statusDot').className = 'status-dot disconnected';
-        document.getElementById('statusText').textContent = 'Disconnected - Reconnecting...';
-        setTimeout(connect, 3000);
-      };
+async function fetchTokenMetadata(token) {
+  let url = token.uri;
+  if (!url) return;
 
-      ws.onerror = () => {
-        ws.close();
-      };
+  // Normalize IPFS URL
+  if (url.startsWith('ipfs://')) {
+    url = 'https://ipfs.io/ipfs/' + url.slice(7);
+  }
+  // Use CORS-friendly IPFS gateway
+  if (url.includes('cf-ipfs.com') || url.includes('ipfs.io') || url.includes('nftstorage.link')) {
+    // These should be CORS-friendly
+  } else if (url.includes('arweave.net')) {
+    // Arweave should be CORS-friendly
+  }
 
-      ws.onmessage = (event) => {
+  try {
+    let data = null;
+
+    // Try direct fetch first
+    try {
+      const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      if (resp.ok) data = await resp.json();
+    } catch(e) {
+      // Try through CORS proxy
+      for (const proxy of CORS_PROXIES) {
         try {
-          const msg = JSON.parse(event.data);
-          handleMessage(msg);
-        } catch(e) {
-          console.error('Parse error:', e);
+          const resp = await fetch(proxy(url), { signal: AbortSignal.timeout(8000) });
+          if (resp.ok) { data = await resp.json(); break; }
+        } catch(e2) { continue; }
+      }
+    }
+
+    if (!data) return;
+
+    // Extract twitter handle from metadata
+    let tw = data.twitter || data.x || '';
+    if (!tw && data.extensions) {
+      tw = data.extensions.twitter || data.extensions.x || '';
+    }
+    if (!tw && data.social) {
+      tw = data.social.twitter || data.social.x || '';
+    }
+
+    if (tw) {
+      // Clean: extract handle from URL or @mention
+      const m = tw.match(/(?:twitter\.com|x\.com)\/([A-Za-z0-9_]+)/);
+      tw = m ? m[1] : tw.replace(/^@/, '').replace(/^https?:\/\//, '').trim();
+
+      if (tw && tw.length >= 2 && tw.length <= 15) {
+        token.twitter = tw;
+        // Update feed display
+        const idx = feeds.findIndex(f => f.contractAddress === token.contractAddress);
+        if (idx >= 0) feeds[idx].twitter = tw;
+        renderFeed();
+
+        // Queue for Twitter check
+        queueTwitterCheck(token);
+      }
+    }
+  } catch(e) {
+    // metadata fetch failed, ignore
+  }
+}
+
+// ==================== BSC: DexScreener Polling ====================
+let bscSeenAddrs = new Set();
+let bscPollTimer = null;
+
+async function startBSCPolling() {
+  log('Starting BSC token polling via DexScreener...');
+  document.getElementById('bscDot').classList.add('on');
+  document.getElementById('bscSt').textContent = 'POLL';
+  pollBSCTokens();
+}
+
+async function pollBSCTokens() {
+  try {
+    // DexScreener latest token profiles - try direct fetch
+    let data = null;
+    const url = 'https://api.dexscreener.com/token-profiles/latest/v1';
+
+    try {
+      const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      if (resp.ok) data = await resp.json();
+    } catch(e) {
+      // Try CORS proxy
+      for (const proxy of CORS_PROXIES) {
+        try {
+          const resp = await fetch(proxy(url), { signal: AbortSignal.timeout(10000) });
+          if (resp.ok) { data = await resp.json(); break; }
+        } catch(e2) { continue; }
+      }
+    }
+
+    if (data && Array.isArray(data)) {
+      for (const item of data) {
+        // Filter for BSC chain
+        if (item.chainId !== 'bsc' && item.chainId !== 'solana') continue;
+        const chain = item.chainId === 'solana' ? 'sol' : 'bsc';
+
+        const addr = item.tokenAddress;
+        if (!addr || bscSeenAddrs.has(addr)) continue;
+        bscSeenAddrs.add(addr);
+
+        nScan++;
+
+        // Extract twitter from links
+        let twitter = null;
+        if (item.links && Array.isArray(item.links)) {
+          for (const link of item.links) {
+            if (link.type === 'twitter' || link.label === 'twitter') {
+              const m = (link.url || '').match(/(?:twitter\.com|x\.com)\/([A-Za-z0-9_]+)/);
+              if (m) twitter = m[1];
+            }
+          }
         }
-      };
-    }
 
-    function handleMessage(msg) {
-      switch(msg.type) {
-        case 'match':
-          handleMatch(msg.data);
-          break;
-        case 'newToken':
-          handleNewToken(msg.data);
-          break;
-        case 'history':
-          matches = msg.data || [];
-          matchCount = matches.length;
-          document.getElementById('matchCount').textContent = matchCount;
-          renderMatches();
-          break;
-        case 'status':
-          if (msg.data.scanCount !== undefined) {
-            scanCount = msg.data.scanCount;
-            document.getElementById('scanCount').textContent = scanCount;
-          }
-          if (msg.data.checkingCount !== undefined) {
-            checkingCount = msg.data.checkingCount;
-            document.getElementById('checkingCount').textContent = checkingCount;
-          }
-          break;
+        const token = {
+          name: item.description ? item.description.substring(0, 30) : (item.symbol || addr.substring(0, 8)),
+          symbol: item.symbol || '',
+          contractAddress: addr,
+          chain,
+          twitter,
+          marketCap: null,
+          timestamp: Date.now(),
+        };
+
+        feeds.unshift(token);
+        if (feeds.length > 500) feeds = feeds.slice(0, 500);
+        renderFeed();
+        updateStats();
+
+        if (twitter) {
+          queueTwitterCheck(token);
+        }
       }
     }
+  } catch(e) {
+    log('BSC poll error: ' + e.message, 'err');
+  }
 
-    function handleMatch(data) {
-      matches.unshift(data);
-      matchCount++;
-      document.getElementById('matchCount').textContent = matchCount;
-      renderMatches();
+  // Poll every 10 seconds
+  bscPollTimer = setTimeout(pollBSCTokens, 10000);
+}
 
-      // Notifications
-      playNotificationSound();
-      if (Notification.permission === 'granted') {
-        new Notification('Contract Match Found!', {
-          body: `${data.name} (@${data.twitter}) - ${data.chain.toUpperCase()}`,
-          icon: '&#128176;',
+// ==================== TWITTER CHECKING ====================
+function queueTwitterCheck(token) {
+  if (!token.twitter || !token.contractAddress) return;
+  if (token.contractAddress.includes('...')) return;
+
+  // Check cache
+  const ck = token.contractAddress;
+  const cached = checkedCache.get(ck);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return;
+
+  checkQueue.push(token);
+  updateStats();
+
+  if (!checking) processQueue();
+}
+
+async function processQueue() {
+  if (checking || checkQueue.length === 0) return;
+  checking = true;
+
+  while (checkQueue.length > 0) {
+    const token = checkQueue.shift();
+    updateStats();
+
+    try {
+      await checkTwitterForContract(token);
+    } catch(e) {
+      log(`Twitter check error @${token.twitter}: ${e.message}`, 'err');
+    }
+
+    nCheck++;
+    updateStats();
+
+    // Wait CHECK_INTERVAL between requests
+    await sleep(CHECK_INTERVAL);
+  }
+
+  checking = false;
+}
+
+async function checkTwitterForContract(token) {
+  const handle = token.twitter;
+  const addr = token.contractAddress;
+
+  log(`Checking @${handle} for ${addr.substring(0,8)}...`);
+
+  // Mark as checking in feed
+  const fi = feeds.findIndex(f => f.contractAddress === addr);
+  if (fi >= 0) { feeds[fi].checking = true; renderFeed(); }
+
+  let matchedTweets = [];
+  let matchedInBio = false;
+  let success = false;
+
+  // Try each nitter host with each CORS proxy
+  for (const host of NITTER_HOSTS) {
+    if (success) break;
+    const nitterUrl = `${host}/${handle}`;
+
+    for (const proxy of CORS_PROXIES) {
+      try {
+        const resp = await fetch(proxy(nitterUrl), {
+          signal: AbortSignal.timeout(10000),
+          headers: { 'Accept': 'text/html' },
         });
+
+        if (!resp.ok) continue;
+        const html = await resp.text();
+        if (!html || html.length < 100) continue;
+
+        // Parse tweet content from nitter HTML
+        const tweets = parseNitterTweets(html);
+        const bio = parseNitterBio(html);
+
+        // Check if any tweet contains the contract address
+        for (const tweet of tweets) {
+          if (tweet.toLowerCase().includes(addr.toLowerCase())) {
+            matchedTweets.push(tweet);
+          }
+        }
+
+        // Check bio
+        if (bio && bio.toLowerCase().includes(addr.toLowerCase())) {
+          matchedInBio = true;
+        }
+
+        success = true;
+        break;
+      } catch(e) {
+        continue;
       }
     }
+  }
 
-    function handleNewToken(data) {
-      feedItems.unshift(data);
-      if (feedItems.length > 200) feedItems = feedItems.slice(0, 200);
-      scanCount++;
-      document.getElementById('scanCount').textContent = scanCount;
-      renderFeed();
-    }
+  // Also try Twitter syndication API as fallback
+  if (!success) {
+    try {
+      const synUrl = `https://syndication.twitter.com/srv/timeline-profile/screen-name/${handle}`;
+      for (const proxy of CORS_PROXIES) {
+        try {
+          const resp = await fetch(proxy(synUrl), { signal: AbortSignal.timeout(10000) });
+          if (!resp.ok) continue;
+          const html = await resp.text();
+          if (!html || html.length < 100) continue;
 
-    function renderMatches() {
-      const container = document.getElementById('matchList');
-      const filtered = currentFilter === 'all'
-        ? matches
-        : matches.filter(m => m.chain === currentFilter);
-
-      if (filtered.length === 0) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <div class="icon">&#128269;</div>
-            <p>No matches yet</p>
-            <p style="margin-top:8px;font-size:12px">When a new coin's Twitter posts its contract address, it will appear here</p>
-          </div>`;
-        return;
+          // Simple text extraction from syndication HTML
+          const textContent = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+          if (textContent.toLowerCase().includes(addr.toLowerCase())) {
+            matchedTweets.push('[Found in Twitter timeline]');
+          }
+          success = true;
+          break;
+        } catch(e) { continue; }
       }
+    } catch(e) {}
+  }
 
-      container.innerHTML = filtered.map((m, i) => `
-        <div class="match-card ${i === 0 ? 'new' : ''}">
-          <div class="match-header">
-            <span class="token-name">${esc(m.name)}</span>
-            <span class="chain-tag ${m.chain}">${m.chain.toUpperCase()}</span>
-          </div>
-          <div class="match-row">
-            <span class="match-label">Contract:</span>
-            <span class="match-value">
-              <span class="contract-addr" onclick="copyAddr('${esc(m.contractAddress)}')" title="Click to copy">${esc(m.contractAddress)}</span>
-            </span>
-          </div>
-          <div class="match-row">
-            <span class="match-label">Twitter:</span>
-            <span class="match-value">
-              <a href="https://x.com/${esc(m.twitter)}" target="_blank">@${esc(m.twitter)}</a>
-            </span>
-          </div>
-          ${m.marketCap ? `
-          <div class="match-row">
-            <span class="match-label">Market Cap:</span>
-            <span class="match-value">${esc(m.marketCap)}</span>
-          </div>` : ''}
-          ${(m.matchedTweets || []).map(t => `
-            <div class="matched-tweet">${esc(t.text)}</div>
-          `).join('')}
-          <div class="match-time">${formatTime(m.timestamp)}</div>
-        </div>
-      `).join('');
-    }
+  // Cache result
+  checkedCache.set(addr, { ts: Date.now(), matched: matchedTweets.length > 0 || matchedInBio });
 
-    function renderFeed() {
-      const container = document.getElementById('feedList');
-      const filtered = currentFilter === 'all'
-        ? feedItems
-        : feedItems.filter(f => f.chain === currentFilter);
+  // Unmark checking
+  if (fi >= 0) { feeds[fi].checking = false; renderFeed(); }
 
-      if (filtered.length === 0) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <div class="icon">&#9201;</div>
-            <p>Waiting for new tokens...</p>
-          </div>`;
-        return;
-      }
+  // If matched!
+  if (matchedTweets.length > 0 || matchedInBio) {
+    nMatch++;
+    const matchData = {
+      name: token.name,
+      symbol: token.symbol,
+      contractAddress: addr,
+      chain: token.chain,
+      twitter: handle,
+      marketCap: token.marketCap,
+      matchedTweets,
+      matchedInBio,
+      timestamp: Date.now(),
+    };
 
-      container.innerHTML = filtered.slice(0, 100).map(f => `
-        <div class="feed-item ${f.twitter ? 'has-twitter' : ''} ${f.checking ? 'checking' : ''}">
-          <div class="feed-name">${esc(f.name)} <span class="chain-tag ${f.chain}" style="font-size:10px">${f.chain.toUpperCase()}</span></div>
-          <div class="feed-details">
-            ${f.contractAddress ? esc(f.contractAddress.substring(0,6)) + '...' + esc(f.contractAddress.slice(-4)) : 'No address'}
-            ${f.twitter ? ' | @' + esc(f.twitter) : ' | No Twitter'}
-            | ${formatTime(f.timestamp)}
-          </div>
-        </div>
-      `).join('');
-    }
+    matches.unshift(matchData);
+    renderMatches();
+    updateStats();
+    playSound();
+    log(`MATCH! @${handle} posted contract ${addr.substring(0,12)}...`, 'match');
 
-    function copyAddr(addr) {
-      navigator.clipboard.writeText(addr).then(() => {
-        const toast = document.getElementById('copyToast');
-        toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 1500);
+    // Browser notification
+    if (Notification.permission === 'granted') {
+      new Notification('Contract Match!', {
+        body: `${token.name} (@${handle}) - ${token.chain.toUpperCase()}\n${addr}`,
       });
     }
+  } else if (success) {
+    log(`No match: @${handle}`, 'info');
+  } else {
+    log(`Could not fetch @${handle} tweets (all proxies failed)`, 'warn');
+  }
+}
 
-    function formatTime(ts) {
-      if (!ts) return '';
-      const d = new Date(ts);
-      return d.toLocaleTimeString('zh-CN', { hour12: false }) + ' ' +
-             d.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+// ==================== HTML PARSERS ====================
+function parseNitterTweets(html) {
+  const tweets = [];
+  // Nitter tweet content is in <div class="tweet-content"> or similar
+  const patterns = [
+    /<div[^>]*class="[^"]*tweet-content[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+    /<p[^>]*class="[^"]*tweet-text[^"]*"[^>]*>([\s\S]*?)<\/p>/gi,
+    /<div[^>]*class="[^"]*timeline-item-content[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+  ];
+
+  for (const pat of patterns) {
+    let m;
+    while ((m = pat.exec(html)) !== null && tweets.length < 5) {
+      const text = m[1].replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
+      if (text.length > 5 && text.length < 2000) {
+        tweets.push(text);
+      }
     }
+  }
 
-    function esc(str) {
-      if (!str) return '';
-      const div = document.createElement('div');
-      div.textContent = String(str);
-      return div.innerHTML;
-    }
+  // Fallback: just search the entire HTML text
+  if (tweets.length === 0) {
+    const textOnly = html.replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ');
+    // Don't return the whole page as one "tweet", just use it for address matching
+    tweets.push(textOnly.substring(0, 5000));
+  }
 
-    // Start connection
-    connect();
-  </script>
+  return tweets;
+}
+
+function parseNitterBio(html) {
+  const m = html.match(/<div[^>]*class="[^"]*profile-bio[^"]*"[^>]*>([\s\S]*?)<\/div>/i)
+    || html.match(/<p[^>]*class="[^"]*bio[^"]*"[^>]*>([\s\S]*?)<\/p>/i);
+  if (m) {
+    return m[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+  return '';
+}
+
+// ==================== UTILS ====================
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ==================== STARTUP ====================
+log('Meme Coin Twitter Scanner starting...', 'ok');
+connectSolana();
+startBSCPolling();
+
+// Periodic cache cleanup
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of checkedCache) {
+    if (now - v.ts > CACHE_TTL) checkedCache.delete(k);
+  }
+}, 5 * 60 * 1000);
+</script>
 </body>
 </html>
