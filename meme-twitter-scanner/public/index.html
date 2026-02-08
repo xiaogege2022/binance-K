@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meme Coin Twitter Scanner</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0b0e11;
+      color: #eaecef;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+    }
+
+    .header {
+      background: #1a1d23;
+      border-bottom: 1px solid #2b2f36;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header h1 {
+      font-size: 20px;
+      color: #00c853;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 13px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 4px;
+    }
+
+    .status-dot.connected { background: #00c853; }
+    .status-dot.disconnected { background: #f44336; }
+
+    .controls {
+      background: #1a1d23;
+      border-bottom: 1px solid #2b2f36;
+      padding: 12px 24px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .chain-filter {
+      display: flex;
+      gap: 8px;
+    }
+
+    .chain-btn {
+      padding: 6px 16px;
+      border-radius: 6px;
+      border: 1px solid #2b2f36;
+      background: transparent;
+      color: #848e9c;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+
+    .chain-btn.active {
+      background: #00c853;
+      color: #000;
+      border-color: #00c853;
+      font-weight: 600;
+    }
+
+    .chain-btn:hover:not(.active) {
+      border-color: #848e9c;
+      color: #eaecef;
+    }
+
+    .stats {
+      margin-left: auto;
+      display: flex;
+      gap: 24px;
+      font-size: 13px;
+      color: #848e9c;
+    }
+
+    .stat-value {
+      color: #eaecef;
+      font-weight: 600;
+    }
+
+    .main {
+      display: flex;
+      height: calc(100vh - 110px);
+    }
+
+    /* Match panel (left - main) */
+    .match-panel {
+      flex: 2;
+      overflow-y: auto;
+      padding: 16px;
+      border-right: 1px solid #2b2f36;
+    }
+
+    .match-panel h2 {
+      font-size: 16px;
+      color: #00c853;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #2b2f36;
+    }
+
+    .match-card {
+      background: #1a1d23;
+      border: 1px solid #00c853;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+      animation: slideIn 0.3s ease;
+    }
+
+    .match-card.new {
+      animation: flashGreen 1s ease;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateY(-10px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    @keyframes flashGreen {
+      0% { border-color: #00ff6a; box-shadow: 0 0 20px rgba(0, 200, 83, 0.5); }
+      100% { border-color: #00c853; box-shadow: none; }
+    }
+
+    .match-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .token-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .chain-tag {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .chain-tag.sol {
+      background: rgba(153, 69, 255, 0.2);
+      color: #b388ff;
+    }
+
+    .chain-tag.bsc {
+      background: rgba(243, 186, 47, 0.2);
+      color: #f3ba2f;
+    }
+
+    .match-row {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+
+    .match-label {
+      color: #848e9c;
+      min-width: 80px;
+      flex-shrink: 0;
+    }
+
+    .match-value {
+      color: #eaecef;
+      word-break: break-all;
+    }
+
+    .match-value a {
+      color: #1e88e5;
+      text-decoration: none;
+    }
+
+    .match-value a:hover { text-decoration: underline; }
+
+    .contract-addr {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      background: #0b0e11;
+      padding: 2px 6px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    .contract-addr:hover {
+      background: #2b2f36;
+    }
+
+    .matched-tweet {
+      background: #0b0e11;
+      border-left: 3px solid #00c853;
+      padding: 8px 12px;
+      margin-top: 8px;
+      border-radius: 0 4px 4px 0;
+      font-size: 13px;
+      color: #b7bdc6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .match-time {
+      color: #848e9c;
+      font-size: 11px;
+      text-align: right;
+      margin-top: 6px;
+    }
+
+    /* Live feed panel (right) */
+    .feed-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+
+    .feed-panel h2 {
+      font-size: 16px;
+      color: #848e9c;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #2b2f36;
+    }
+
+    .feed-item {
+      padding: 8px 12px;
+      margin-bottom: 6px;
+      border-radius: 6px;
+      background: #1a1d23;
+      font-size: 12px;
+      border-left: 3px solid #2b2f36;
+    }
+
+    .feed-item.has-twitter {
+      border-left-color: #1e88e5;
+    }
+
+    .feed-item.checking {
+      border-left-color: #ff9800;
+    }
+
+    .feed-name {
+      font-weight: 600;
+      color: #eaecef;
+      margin-bottom: 2px;
+    }
+
+    .feed-details {
+      color: #848e9c;
+      font-size: 11px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #848e9c;
+    }
+
+    .empty-state .icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    /* Sound toggle */
+    .sound-toggle {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid #2b2f36;
+      background: transparent;
+      color: #848e9c;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .sound-toggle.on {
+      border-color: #00c853;
+      color: #00c853;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #0b0e11;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #2b2f36;
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #848e9c;
+    }
+
+    .copy-toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #00c853;
+      color: #000;
+      padding: 8px 20px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    .copy-toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Meme Coin Twitter Scanner</h1>
+    <div class="status-bar">
+      <span><span class="status-dot disconnected" id="statusDot"></span><span id="statusText">Connecting...</span></span>
+      <button class="sound-toggle" id="soundBtn" onclick="toggleSound()">Sound: OFF</button>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="chain-filter">
+      <button class="chain-btn active" data-chain="all" onclick="setFilter('all', this)">ALL</button>
+      <button class="chain-btn" data-chain="sol" onclick="setFilter('sol', this)">SOL</button>
+      <button class="chain-btn" data-chain="bsc" onclick="setFilter('bsc', this)">BSC</button>
+    </div>
+    <div class="stats">
+      <span>Matches: <span class="stat-value" id="matchCount">0</span></span>
+      <span>Scanned: <span class="stat-value" id="scanCount">0</span></span>
+      <span>Checking: <span class="stat-value" id="checkingCount">0</span></span>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="match-panel" id="matchPanel">
+      <h2>Contract Address Matches</h2>
+      <div id="matchList">
+        <div class="empty-state">
+          <div class="icon">&#128269;</div>
+          <p>Waiting for matches...</p>
+          <p style="margin-top:8px;font-size:12px">When a new coin's Twitter posts its contract address, it will appear here</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="feed-panel" id="feedPanel">
+      <h2>Live New Tokens</h2>
+      <div id="feedList">
+        <div class="empty-state">
+          <div class="icon">&#9201;</div>
+          <p>Waiting for new tokens...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="copy-toast" id="copyToast">Copied!</div>
+
+  <script>
+    let ws = null;
+    let soundEnabled = false;
+    let currentFilter = 'all';
+    let matchCount = 0;
+    let scanCount = 0;
+    let checkingCount = 0;
+    let matches = [];
+    let feedItems = [];
+
+    // Audio context for notification sound
+    let audioCtx = null;
+
+    function initAudio() {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    function playNotificationSound() {
+      if (!soundEnabled || !audioCtx) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(1100, audioCtx.currentTime + 0.1);
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.2);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.5);
+      } catch(e) {}
+    }
+
+    function toggleSound() {
+      if (!audioCtx) initAudio();
+      soundEnabled = !soundEnabled;
+      const btn = document.getElementById('soundBtn');
+      btn.textContent = soundEnabled ? 'Sound: ON' : 'Sound: OFF';
+      btn.className = 'sound-toggle' + (soundEnabled ? ' on' : '');
+      if (soundEnabled) {
+        // Also request notification permission
+        if (Notification.permission === 'default') {
+          Notification.requestPermission();
+        }
+      }
+    }
+
+    function setFilter(chain, btn) {
+      currentFilter = chain;
+      document.querySelectorAll('.chain-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderMatches();
+      renderFeed();
+    }
+
+    function connect() {
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${location.host}`);
+
+      ws.onopen = () => {
+        document.getElementById('statusDot').className = 'status-dot connected';
+        document.getElementById('statusText').textContent = 'Connected';
+      };
+
+      ws.onclose = () => {
+        document.getElementById('statusDot').className = 'status-dot disconnected';
+        document.getElementById('statusText').textContent = 'Disconnected - Reconnecting...';
+        setTimeout(connect, 3000);
+      };
+
+      ws.onerror = () => {
+        ws.close();
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          handleMessage(msg);
+        } catch(e) {
+          console.error('Parse error:', e);
+        }
+      };
+    }
+
+    function handleMessage(msg) {
+      switch(msg.type) {
+        case 'match':
+          handleMatch(msg.data);
+          break;
+        case 'newToken':
+          handleNewToken(msg.data);
+          break;
+        case 'history':
+          matches = msg.data || [];
+          matchCount = matches.length;
+          document.getElementById('matchCount').textContent = matchCount;
+          renderMatches();
+          break;
+        case 'status':
+          if (msg.data.scanCount !== undefined) {
+            scanCount = msg.data.scanCount;
+            document.getElementById('scanCount').textContent = scanCount;
+          }
+          if (msg.data.checkingCount !== undefined) {
+            checkingCount = msg.data.checkingCount;
+            document.getElementById('checkingCount').textContent = checkingCount;
+          }
+          break;
+      }
+    }
+
+    function handleMatch(data) {
+      matches.unshift(data);
+      matchCount++;
+      document.getElementById('matchCount').textContent = matchCount;
+      renderMatches();
+
+      // Notifications
+      playNotificationSound();
+      if (Notification.permission === 'granted') {
+        new Notification('Contract Match Found!', {
+          body: `${data.name} (@${data.twitter}) - ${data.chain.toUpperCase()}`,
+          icon: '&#128176;',
+        });
+      }
+    }
+
+    function handleNewToken(data) {
+      feedItems.unshift(data);
+      if (feedItems.length > 200) feedItems = feedItems.slice(0, 200);
+      scanCount++;
+      document.getElementById('scanCount').textContent = scanCount;
+      renderFeed();
+    }
+
+    function renderMatches() {
+      const container = document.getElementById('matchList');
+      const filtered = currentFilter === 'all'
+        ? matches
+        : matches.filter(m => m.chain === currentFilter);
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">&#128269;</div>
+            <p>No matches yet</p>
+            <p style="margin-top:8px;font-size:12px">When a new coin's Twitter posts its contract address, it will appear here</p>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = filtered.map((m, i) => `
+        <div class="match-card ${i === 0 ? 'new' : ''}">
+          <div class="match-header">
+            <span class="token-name">${esc(m.name)}</span>
+            <span class="chain-tag ${m.chain}">${m.chain.toUpperCase()}</span>
+          </div>
+          <div class="match-row">
+            <span class="match-label">Contract:</span>
+            <span class="match-value">
+              <span class="contract-addr" onclick="copyAddr('${esc(m.contractAddress)}')" title="Click to copy">${esc(m.contractAddress)}</span>
+            </span>
+          </div>
+          <div class="match-row">
+            <span class="match-label">Twitter:</span>
+            <span class="match-value">
+              <a href="https://x.com/${esc(m.twitter)}" target="_blank">@${esc(m.twitter)}</a>
+            </span>
+          </div>
+          ${m.marketCap ? `
+          <div class="match-row">
+            <span class="match-label">Market Cap:</span>
+            <span class="match-value">${esc(m.marketCap)}</span>
+          </div>` : ''}
+          ${(m.matchedTweets || []).map(t => `
+            <div class="matched-tweet">${esc(t.text)}</div>
+          `).join('')}
+          <div class="match-time">${formatTime(m.timestamp)}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderFeed() {
+      const container = document.getElementById('feedList');
+      const filtered = currentFilter === 'all'
+        ? feedItems
+        : feedItems.filter(f => f.chain === currentFilter);
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">&#9201;</div>
+            <p>Waiting for new tokens...</p>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = filtered.slice(0, 100).map(f => `
+        <div class="feed-item ${f.twitter ? 'has-twitter' : ''} ${f.checking ? 'checking' : ''}">
+          <div class="feed-name">${esc(f.name)} <span class="chain-tag ${f.chain}" style="font-size:10px">${f.chain.toUpperCase()}</span></div>
+          <div class="feed-details">
+            ${f.contractAddress ? esc(f.contractAddress.substring(0,6)) + '...' + esc(f.contractAddress.slice(-4)) : 'No address'}
+            ${f.twitter ? ' | @' + esc(f.twitter) : ' | No Twitter'}
+            | ${formatTime(f.timestamp)}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function copyAddr(addr) {
+      navigator.clipboard.writeText(addr).then(() => {
+        const toast = document.getElementById('copyToast');
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 1500);
+      });
+    }
+
+    function formatTime(ts) {
+      if (!ts) return '';
+      const d = new Date(ts);
+      return d.toLocaleTimeString('zh-CN', { hour12: false }) + ' ' +
+             d.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+    }
+
+    function esc(str) {
+      if (!str) return '';
+      const div = document.createElement('div');
+      div.textContent = String(str);
+      return div.innerHTML;
+    }
+
+    // Start connection
+    connect();
+  </script>
+</body>
+</html>
