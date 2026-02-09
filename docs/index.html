@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>推特CA扫描神器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0b0e11;color:#eaecef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh}
+.header{background:#1a1d23;border-bottom:1px solid #2b2f36;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100}
+.header h1{font-size:18px;color:#00c853}
+.hdr-right{display:flex;align-items:center;gap:12px;font-size:13px}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px;background:#f44336}
+.dot.on{background:#00c853}
+.ctrl{background:#1a1d23;border-bottom:1px solid #2b2f36;padding:10px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.btn{padding:5px 14px;border-radius:5px;border:1px solid #2b2f36;background:transparent;color:#848e9c;cursor:pointer;font-size:12px;transition:all .2s}
+.btn.active{background:#00c853;color:#000;border-color:#00c853;font-weight:600}
+.btn:hover:not(.active){border-color:#848e9c;color:#eaecef}
+.stats{margin-left:auto;display:flex;gap:18px;font-size:12px;color:#848e9c}
+.stats-val{color:#eaecef;font-weight:600}
+.main{display:flex;height:calc(100vh - 140px)}
+.panel{overflow-y:auto;padding:14px}
+.panel-left{flex:2;border-right:1px solid #2b2f36}
+.panel-right{flex:1}
+.panel h2{font-size:14px;color:#848e9c;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #2b2f36}
+.panel h2.green{color:#00c853}
+.card{background:#1a1d23;border:1px solid #00c853;border-radius:8px;padding:14px;margin-bottom:10px;animation:slideIn .3s}
+.card.flash{animation:flashGreen 1.5s}
+@keyframes slideIn{from{transform:translateY(-8px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes flashGreen{0%{border-color:#0f0;box-shadow:0 0 20px rgba(0,200,83,.5)}100%{border-color:#00c853;box-shadow:none}}
+.card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.token-name{font-size:15px;font-weight:700;color:#fff}
+.tag{padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase}
+.tag.sol{background:rgba(153,69,255,.2);color:#b388ff}
+.tag.bsc{background:rgba(243,186,47,.2);color:#f3ba2f}
+.row{display:flex;align-items:flex-start;margin-bottom:5px;font-size:12px}
+.label{color:#848e9c;min-width:72px;flex-shrink:0}
+.value{color:#eaecef;word-break:break-all}
+.value a{color:#1e88e5;text-decoration:none}
+.value a:hover{text-decoration:underline}
+.addr{font-family:'Courier New',monospace;font-size:11px;background:#0b0e11;padding:2px 5px;border-radius:3px;cursor:pointer}
+.addr:hover{background:#2b2f36}
+.tweet-box{background:#0b0e11;border-left:3px solid #00c853;padding:7px 10px;margin-top:6px;border-radius:0 4px 4px 0;font-size:12px;color:#b7bdc6;white-space:pre-wrap;word-break:break-word}
+.time{color:#848e9c;font-size:10px;text-align:right;margin-top:4px}
+.feed-item{padding:6px 10px;margin-bottom:4px;border-radius:5px;background:#1a1d23;font-size:11px;border-left:3px solid #2b2f36}
+.feed-item.has-tw{border-left-color:#1e88e5}
+.feed-item.checking{border-left-color:#ff9800}
+.feed-name{font-weight:600;color:#eaecef;margin-bottom:1px}
+.feed-detail{color:#848e9c;font-size:10px}
+.empty{text-align:center;padding:50px 20px;color:#848e9c}
+.empty .icon{font-size:40px;margin-bottom:12px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#00c853;color:#000;padding:7px 18px;border-radius:5px;font-size:12px;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999}
+.toast.show{opacity:1}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:#0b0e11}
+::-webkit-scrollbar-thumb{background:#2b2f36;border-radius:3px}
+.log-box{background:#0b0e11;border:1px solid #2b2f36;border-radius:6px;padding:10px;margin:0 20px 0;max-height:150px;overflow-y:auto;font-family:monospace;font-size:11px;color:#848e9c}
+.highlight{color:#ff0;background:rgba(255,255,0,.15);padding:0 2px;border-radius:2px}
+.manual-link{display:inline-block;margin-left:8px;font-size:11px;padding:1px 6px;background:#2b2f36;border-radius:3px;color:#1e88e5;text-decoration:none}
+.manual-link:hover{background:#3b3f46}
+.err-banner{background:#f44336;color:#fff;padding:12px 20px;font-size:13px;display:none}
+.err-banner.show{display:block}
+</style>
+</head>
+<body>
+
+<div class="err-banner" id="errBanner"></div>
+
+<div class="header">
+  <h1>推特CA扫描神器</h1>
+  <div class="hdr-right">
+    <span><span class="dot" id="solDot"></span>SOL: <span id="solStatus">离线</span></span>
+    <span><span class="dot" id="bscDot"></span>BSC: <span id="bscStatus">离线</span></span>
+    <button class="btn" id="soundBtn" onclick="toggleSound()">声音 关</button>
+    <button class="btn" id="logBtn" onclick="toggleLog()">隐藏日志</button>
+  </div>
+</div>
+
+<div class="ctrl">
+  <button class="btn active" onclick="setFilter('all',this)">全部</button>
+  <button class="btn" onclick="setFilter('sol',this)">SOL</button>
+  <button class="btn" onclick="setFilter('bsc',this)">BSC</button>
+  <div class="stats">
+    <span>匹配: <span class="stats-val" id="statMatch">0</span></span>
+    <span>扫描: <span class="stats-val" id="statScan">0</span></span>
+    <span>已查: <span class="stats-val" id="statCheck">0</span></span>
+    <span>队列: <span class="stats-val" id="statQueue">0</span></span>
+  </div>
+</div>
+
+<div class="log-box" id="logBox">
+  <div style="color:#00c853">[启动] 页面已加载，正在初始化...</div>
+</div>
+
+<div class="main">
+  <div class="panel panel-left">
+    <h2 class="green">合约地址匹配结果</h2>
+    <div id="matchList">
+      <div class="empty">
+        <div class="icon">&#128269;</div>
+        <p>等待匹配中...</p>
+        <p style="margin-top:6px;font-size:11px">当新币的推特发布了其合约地址，将在这里显示</p>
+      </div>
+    </div>
+  </div>
+  <div class="panel panel-right">
+    <h2>实时新币流</h2>
+    <div id="feedList">
+      <div class="empty">
+        <div class="icon">&#9201;</div>
+        <p>正在连接数据源...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">已复制!</div>
+
+<script>
+// ========== 全局错误捕获 ==========
+window.onerror = function(msg, url, line, col, err) {
+  showError('JS错误: ' + msg + ' (行' + line + ')');
+  log('JS错误: ' + msg + ' 行:' + line, 'err');
+  return false;
+};
+window.onunhandledrejection = function(e) {
+  log('Promise错误: ' + (e.reason ? e.reason.message || e.reason : '未知'), 'err');
+};
+
+function showError(msg) {
+  var el = document.getElementById('errBanner');
+  if (el) { el.textContent = msg; el.classList.add('show'); }
+}
+
+// ========== AbortSignal.timeout 兼容 ==========
+if (typeof AbortSignal !== 'undefined' && !AbortSignal.timeout) {
+  AbortSignal.timeout = function(ms) {
+    var ctrl = new AbortController();
+    setTimeout(function() { ctrl.abort(); }, ms);
+    return ctrl.signal;
+  };
+}
+
+// ========== 状态变量 ==========
+var currentFilter = 'all';
+var soundOn = false;
+var matchesArr = [];
+var feedsArr = [];
+var scanCount = 0;
+var checkCount = 0;
+var matchCount = 0;
+var audioCtx = null;
+var queue = [];
+var queueRunning = false;
+var resultCache = new Map();
+var CACHE_TTL = 30 * 60000;
+var CHECK_INTERVAL = 1000;
+
+// ========== CORS代理 ==========
+var PROXIES = [
+  function(u) { return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u); },
+  function(u) { return 'https://corsproxy.io/?' + encodeURIComponent(u); },
+  function(u) { return 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u); }
+];
+
+// ========== Nitter实例 ==========
+var NITTER_HOSTS = [
+  'https://nitter.poast.org',
+  'https://xcancel.com',
+  'https://nitter.privacydev.net'
+];
+
+// ========== 日志 ==========
+function log(msg, type) {
+  type = type || 'info';
+  var box = document.getElementById('logBox');
+  if (!box) return;
+  var colors = { info: '#848e9c', ok: '#00c853', warn: '#ff9800', err: '#f44336', match: '#00ff6a' };
+  var now = new Date();
+  var ts = now.toLocaleTimeString('zh-CN', { hour12: false });
+  var div = document.createElement('div');
+  div.style.color = colors[type] || '#848e9c';
+  div.textContent = '[' + ts + '] ' + msg;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  if (box.children.length > 500) box.removeChild(box.firstChild);
+  // 也输出到控制台方便调试
+  console.log('[' + type + '] ' + msg);
+}
+
+var logVisible = true;
+function toggleLog() {
+  logVisible = !logVisible;
+  document.getElementById('logBox').style.display = logVisible ? 'block' : 'none';
+  document.getElementById('logBtn').textContent = logVisible ? '隐藏日志' : '显示日志';
+}
+
+// ========== 声音 ==========
+function initAudio() {
+  try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+}
+function beep() {
+  if (!soundOn || !audioCtx) return;
+  try {
+    var o = audioCtx.createOscillator();
+    var g = audioCtx.createGain();
+    o.connect(g); g.connect(audioCtx.destination);
+    o.frequency.setValueAtTime(880, audioCtx.currentTime);
+    o.frequency.setValueAtTime(1100, audioCtx.currentTime + 0.1);
+    o.frequency.setValueAtTime(1320, audioCtx.currentTime + 0.2);
+    g.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+    o.start(); o.stop(audioCtx.currentTime + 0.6);
+  } catch(e) {}
+}
+function toggleSound() {
+  if (!audioCtx) initAudio();
+  soundOn = !soundOn;
+  var btn = document.getElementById('soundBtn');
+  btn.textContent = soundOn ? '声音 开' : '声音 关';
+  if (soundOn) btn.classList.add('active'); else btn.classList.remove('active');
+  if (soundOn && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+// ========== 界面工具 ==========
+function setFilter(chain, btn) {
+  currentFilter = chain;
+  var btns = document.querySelectorAll('.ctrl .btn');
+  for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+  btn.classList.add('active');
+  renderMatches();
+  renderFeed();
+}
+
+function updateStats() {
+  document.getElementById('statMatch').textContent = matchCount;
+  document.getElementById('statScan').textContent = scanCount;
+  document.getElementById('statCheck').textContent = checkCount;
+  document.getElementById('statQueue').textContent = queue.length;
+}
+
+function escapeHtml(s) {
+  if (!s) return '';
+  var d = document.createElement('div');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
+
+function formatTime(ts) {
+  if (!ts) return '';
+  var d = new Date(ts);
+  return d.toLocaleTimeString('zh-CN', { hour12: false }) + ' ' + d.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+}
+
+function copyAddr(addr) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(addr).then(function() {
+      var t = document.getElementById('toast'); t.classList.add('show');
+      setTimeout(function() { t.classList.remove('show'); }, 1200);
+    });
+  } else {
+    // 兼容fallback
+    var ta = document.createElement('textarea');
+    ta.value = addr; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    var t = document.getElementById('toast'); t.classList.add('show');
+    setTimeout(function() { t.classList.remove('show'); }, 1200);
+  }
+}
+
+// ========== 渲染匹配结果 ==========
+function renderMatches() {
+  var el = document.getElementById('matchList');
+  var list = currentFilter === 'all' ? matchesArr : matchesArr.filter(function(m) { return m.chain === currentFilter; });
+  if (!list.length) {
+    el.innerHTML = '<div class="empty"><div class="icon">&#128269;</div><p>暂无匹配</p></div>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < list.length; i++) {
+    var m = list[i];
+    html += '<div class="card ' + (i === 0 ? 'flash' : '') + '">';
+    html += '<div class="card-head"><span class="token-name">' + escapeHtml(m.name) + '</span><span class="tag ' + m.chain + '">' + m.chain.toUpperCase() + '</span></div>';
+    html += '<div class="row"><span class="label">合约:</span><span class="value"><span class="addr" onclick="copyAddr(\'' + escapeHtml(m.ca) + '\')" title="点击复制">' + escapeHtml(m.ca) + '</span></span></div>';
+    html += '<div class="row"><span class="label">推特:</span><span class="value"><a href="https://x.com/' + escapeHtml(m.tw) + '" target="_blank">@' + escapeHtml(m.tw) + '</a><a class="manual-link" href="https://x.com/' + escapeHtml(m.tw) + '" target="_blank">打开推特</a></span></div>';
+    if (m.mc) html += '<div class="row"><span class="label">市值:</span><span class="value">' + escapeHtml(m.mc) + '</span></div>';
+    if (m.matchedTweets) {
+      for (var j = 0; j < m.matchedTweets.length; j++) {
+        html += '<div class="tweet-box">' + highlightAddr(escapeHtml(m.matchedTweets[j]), escapeHtml(m.ca)) + '</div>';
+      }
+    }
+    if (m.matchedBio) html += '<div class="tweet-box" style="border-left-color:#1e88e5">在推特简介中找到合约地址</div>';
+    html += '<div class="time">' + formatTime(m.ts) + '</div>';
+    html += '</div>';
+  }
+  el.innerHTML = html;
+}
+
+function highlightAddr(text, addr) {
+  if (!addr || addr.length < 10) return text;
+  var idx = text.toLowerCase().indexOf(addr.toLowerCase());
+  if (idx === -1) return text;
+  return text.substring(0, idx) + '<span class="highlight">' + text.substring(idx, idx + addr.length) + '</span>' + text.substring(idx + addr.length);
+}
+
+// ========== 渲染新币流 ==========
+function renderFeed() {
+  var el = document.getElementById('feedList');
+  var list = currentFilter === 'all' ? feedsArr : feedsArr.filter(function(f) { return f.chain === currentFilter; });
+  if (!list.length) {
+    el.innerHTML = '<div class="empty"><div class="icon">&#9201;</div><p>等待新币...</p></div>';
+    return;
+  }
+  var html = '';
+  var max = Math.min(list.length, 150);
+  for (var i = 0; i < max; i++) {
+    var f = list[i];
+    var cls = 'feed-item';
+    if (f.tw) cls += ' has-tw';
+    if (f.checking) cls += ' checking';
+    html += '<div class="' + cls + '">';
+    html += '<div class="feed-name">' + escapeHtml(f.name) + ' <span class="tag ' + f.chain + '" style="font-size:9px">' + f.chain.toUpperCase() + '</span></div>';
+    var detail = '';
+    if (f.ca) detail += escapeHtml(f.ca.substring(0, 6)) + '...' + escapeHtml(f.ca.slice(-4));
+    if (f.tw) detail += ' | @' + escapeHtml(f.tw);
+    detail += ' | ' + formatTime(f.ts);
+    html += '<div class="feed-detail">' + detail + '</div>';
+    html += '</div>';
+  }
+  el.innerHTML = html;
+}
+
+function addFeed(token) {
+  feedsArr.unshift(token);
+  if (feedsArr.length > 500) feedsArr = feedsArr.slice(0, 500);
+  scanCount++;
+  renderFeed();
+  updateStats();
+}
+
+// ========== 安全的fetch封装 ==========
+function safeFetch(url, timeoutMs) {
+  timeoutMs = timeoutMs || 10000;
+  var opts = {};
+  try {
+    opts.signal = AbortSignal.timeout(timeoutMs);
+  } catch(e) {
+    // AbortSignal.timeout不支持的情况
+    var ctrl = new AbortController();
+    setTimeout(function() { ctrl.abort(); }, timeoutMs);
+    opts.signal = ctrl.signal;
+  }
+  return fetch(url, opts);
+}
+
+function safeFetchJson(url, timeoutMs) {
+  return safeFetch(url, timeoutMs).then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  });
+}
+
+// ========== 通过代理获取 ==========
+function fetchViaProxy(url, timeoutMs) {
+  timeoutMs = timeoutMs || 10000;
+  // 先尝试直连
+  return safeFetchJson(url, timeoutMs).catch(function() {
+    // 直连失败，依次尝试代理
+    var idx = 0;
+    function tryNext() {
+      if (idx >= PROXIES.length) return Promise.reject(new Error('所有代理均失败'));
+      var proxyUrl = PROXIES[idx](url);
+      idx++;
+      return safeFetchJson(proxyUrl, timeoutMs).catch(function() { return tryNext(); });
+    }
+    return tryNext();
+  });
+}
+
+function fetchTextViaProxy(url, timeoutMs) {
+  timeoutMs = timeoutMs || 10000;
+  function fetchText(u) {
+    return safeFetch(u, timeoutMs).then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    });
+  }
+  return fetchText(url).catch(function() {
+    var idx = 0;
+    function tryNext() {
+      if (idx >= PROXIES.length) return Promise.reject(new Error('所有代理均失败'));
+      var proxyUrl = PROXIES[idx](url);
+      idx++;
+      return fetchText(proxyUrl).catch(function() { return tryNext(); });
+    }
+    return tryNext();
+  });
+}
+
+// ==========================================================
+//  SOL链: PumpPortal WebSocket
+// ==========================================================
+var solWs = null;
+var solReconnectDelay = 1000;
+
+function connectSOL() {
+  log('正在连接 PumpPortal (SOL)...');
+  try {
+    solWs = new WebSocket('wss://pumpportal.fun/api/data');
+  } catch(e) {
+    log('WebSocket创建失败: ' + e.message, 'err');
+    setTimeout(connectSOL, solReconnectDelay);
+    return;
+  }
+
+  solWs.onopen = function() {
+    log('SOL 数据源已连接', 'ok');
+    document.getElementById('solDot').classList.add('on');
+    document.getElementById('solStatus').textContent = '在线';
+    solReconnectDelay = 1000;
+    solWs.send(JSON.stringify({ method: 'subscribeNewToken' }));
+  };
+
+  solWs.onmessage = function(ev) {
+    try {
+      var d = JSON.parse(ev.data);
+      if (!d.mint) return;
+      var token = {
+        name: d.name || d.symbol || '未知',
+        ca: d.mint,
+        chain: 'sol',
+        tw: null,
+        mc: d.marketCapSol ? Number(d.marketCapSol).toFixed(1) + ' SOL' : null,
+        uri: d.uri || null,
+        ts: Date.now()
+      };
+      addFeed(token);
+      // 从IPFS元数据获取推特
+      if (token.uri) fetchTokenMeta(token);
+    } catch(e) {
+      // 忽略解析错误
+    }
+  };
+
+  solWs.onclose = function() {
+    log('SOL 连接断开，正在重连...', 'warn');
+    document.getElementById('solDot').classList.remove('on');
+    document.getElementById('solStatus').textContent = '离线';
+    solReconnectDelay = Math.min(solReconnectDelay * 2, 30000);
+    setTimeout(connectSOL, solReconnectDelay);
+  };
+
+  solWs.onerror = function() {
+    try { solWs.close(); } catch(e) {}
+  };
+}
+
+// ========== 获取SOL代币IPFS元数据 ==========
+function fetchTokenMeta(token) {
+  var url = token.uri;
+  if (!url) return;
+  if (url.indexOf('ipfs://') === 0) url = 'https://ipfs.io/ipfs/' + url.slice(7);
+
+  fetchViaProxy(url, 8000).then(function(d) {
+    if (!d) return;
+    var tw = d.twitter || d.x || '';
+    if (!tw && d.extensions) tw = d.extensions.twitter || d.extensions.x || '';
+    if (!tw && d.social) tw = d.social.twitter || d.social.x || '';
+    if (!tw) return;
+
+    // 从URL中提取用户名
+    var m = tw.match(/(?:twitter\.com|x\.com)\/([A-Za-z0-9_]+)/);
+    if (m) {
+      tw = m[1];
+    } else {
+      tw = tw.replace(/^@/, '').replace(/^https?:\/\//, '').split('/')[0].trim();
+    }
+
+    if (tw && tw.length >= 2 && tw.length <= 15) {
+      token.tw = tw;
+      // 更新feed中的显示
+      for (var i = 0; i < feedsArr.length; i++) {
+        if (feedsArr[i].ca === token.ca) { feedsArr[i].tw = tw; break; }
+      }
+      renderFeed();
+      enqueueCheck(token);
+    }
+  }).catch(function() {
+    // 元数据获取失败，正常情况
+  });
+}
+
+// ==========================================================
+//  BSC链: GeckoTerminal 新池子
+// ==========================================================
+var bscSeenAddrs = new Set();
+
+function startBSC() {
+  log('正在启动 BSC 扫描 (GeckoTerminal)...');
+  document.getElementById('bscDot').classList.add('on');
+  document.getElementById('bscStatus').textContent = '轮询中';
+  pollBSC();
+}
+
+function pollBSC() {
+  var url = 'https://api.geckoterminal.com/api/v2/networks/bsc/new_pools?include=base_token&page=1';
+
+  fetchViaProxy(url, 15000).then(function(data) {
+    if (!data || !data.data || !Array.isArray(data.data)) {
+      log('BSC: 数据为空或格式异常', 'warn');
+      return;
+    }
+
+    log('BSC: 获取到 ' + data.data.length + ' 个新池子', 'ok');
+
+    // 构建included里的token映射
+    var tokenMap = {};
+    if (data.included && Array.isArray(data.included)) {
+      for (var i = 0; i < data.included.length; i++) {
+        var inc = data.included[i];
+        if (inc.type === 'token' && inc.attributes) {
+          tokenMap[inc.id] = inc.attributes;
+        }
+      }
+    }
+
+    for (var j = 0; j < data.data.length; j++) {
+      var pool = data.data[j];
+      var attr = pool.attributes || {};
+      var rel = pool.relationships || {};
+      var btId = (rel.base_token && rel.base_token.data) ? rel.base_token.data.id : '';
+      // btId格式: "bsc_0xADDRESS"
+      var addr = btId.indexOf('bsc_') === 0 ? btId.slice(4) : btId;
+      if (!addr || bscSeenAddrs.has(addr)) continue;
+      bscSeenAddrs.add(addr);
+
+      var tInfo = tokenMap[btId] || {};
+      var name = tInfo.name || tInfo.symbol || attr.name || '未知';
+
+      var token = {
+        name: name,
+        ca: addr,
+        chain: 'bsc',
+        tw: null,
+        mc: attr.fdv_usd ? '$' + Number(attr.fdv_usd).toLocaleString() : null,
+        ts: Date.now()
+      };
+      addFeed(token);
+      // DexScreener查推特
+      lookupBscTwitter(token);
+    }
+  }).catch(function(e) {
+    log('BSC 轮询出错: ' + e.message, 'err');
+  }).finally(function() {
+    setTimeout(pollBSC, 15000);
+  });
+}
+
+// ========== DexScreener查BSC代币推特 ==========
+function lookupBscTwitter(token) {
+  var url = 'https://api.dexscreener.com/latest/dex/tokens/' + token.ca;
+
+  fetchViaProxy(url, 10000).then(function(data) {
+    if (!data || !data.pairs) return;
+    for (var i = 0; i < data.pairs.length; i++) {
+      var pair = data.pairs[i];
+      if (!pair.info || !pair.info.socials) continue;
+      for (var j = 0; j < pair.info.socials.length; j++) {
+        var s = pair.info.socials[j];
+        if (s.type === 'twitter' && s.url) {
+          var m = s.url.match(/(?:twitter\.com|x\.com)\/([A-Za-z0-9_]+)/);
+          if (m) {
+            token.tw = m[1];
+            for (var k = 0; k < feedsArr.length; k++) {
+              if (feedsArr[k].ca === token.ca) { feedsArr[k].tw = m[1]; break; }
+            }
+            renderFeed();
+            enqueueCheck(token);
+            return;
+          }
+        }
+      }
+    }
+  }).catch(function() {
+    // DexScreener查询失败，忽略
+  });
+}
+
+// ==========================================================
+//  推特验证队列
+// ==========================================================
+function enqueueCheck(token) {
+  if (!token.tw || !token.ca) return;
+  if (token.ca.indexOf('...') !== -1) return;
+  if (resultCache.has(token.ca) && Date.now() - resultCache.get(token.ca).ts < CACHE_TTL) return;
+  queue.push(token);
+  updateStats();
+  if (!queueRunning) processQueue();
+}
+
+function processQueue() {
+  if (queueRunning || queue.length === 0) return;
+  queueRunning = true;
+
+  function next() {
+    if (queue.length === 0) { queueRunning = false; return; }
+    var token = queue.shift();
+    updateStats();
+    checkTwitter(token).then(function() {
+      checkCount++;
+      updateStats();
+      return sleep(CHECK_INTERVAL);
+    }).then(function() {
+      next();
+    }).catch(function(e) {
+      log('推特检查异常 @' + token.tw + ': ' + e.message, 'err');
+      checkCount++;
+      updateStats();
+      sleep(CHECK_INTERVAL).then(next);
+    });
+  }
+  next();
+}
+
+// ==========================================================
+//  推特内容检查 (3种策略)
+// ==========================================================
+function checkTwitter(token) {
+  var handle = token.tw;
+  var addr = token.ca;
+  log('检查 @' + handle + ' 是否发布合约 ' + addr.substring(0, 8) + '...');
+
+  // 标记feed中正在检查
+  for (var i = 0; i < feedsArr.length; i++) {
+    if (feedsArr[i].ca === addr) { feedsArr[i].checking = true; break; }
+  }
+  renderFeed();
+
+  var matchedTweets = [];
+  var matchedBio = false;
+  var succeeded = false;
+
+  // 策略1: Nitter RSS
+  function tryNitterRSS() {
+    var hostIdx = 0;
+    function tryHost() {
+      if (hostIdx >= NITTER_HOSTS.length) return Promise.resolve(false);
+      var host = NITTER_HOSTS[hostIdx];
+      hostIdx++;
+      var rssUrl = host + '/' + handle + '/rss';
+      return fetchTextViaProxy(rssUrl, 8000).then(function(xml) {
+        if (!xml || xml.length < 50 || xml.indexOf('<') === -1) return tryHost();
+        // 解析RSS
+        var items = xml.match(/<item>[\s\S]*?<\/item>/gi) || [];
+        var count = Math.min(items.length, 5);
+        for (var i = 0; i < count; i++) {
+          var descMatch = items[i].match(/<description><!\[CDATA\[([\s\S]*?)\]\]>/i) || items[i].match(/<description>([\s\S]*?)<\/description>/i);
+          var titleMatch = items[i].match(/<title><!\[CDATA\[([\s\S]*?)\]\]>/i) || items[i].match(/<title>([\s\S]*?)<\/title>/i);
+          var text = ((descMatch ? descMatch[1] : '') + (titleMatch ? titleMatch[1] : ''))
+            .replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
+          if (text.toLowerCase().indexOf(addr.toLowerCase()) !== -1) {
+            matchedTweets.push(text.substring(0, 500));
+          }
+        }
+        log('RSS获取成功: ' + host, 'ok');
+        return true;
+      }).catch(function() {
+        return tryHost();
+      });
+    }
+    return tryHost();
+  }
+
+  // 策略2: Nitter HTML
+  function tryNitterHTML() {
+    var hostIdx = 0;
+    function tryHost() {
+      if (hostIdx >= NITTER_HOSTS.length) return Promise.resolve(false);
+      var host = NITTER_HOSTS[hostIdx];
+      hostIdx++;
+      return fetchTextViaProxy(host + '/' + handle, 8000).then(function(html) {
+        if (!html || html.length < 200) return tryHost();
+        // 提取推文
+        var tweetTexts = [];
+        var patterns = [
+          /<div[^>]*class="[^"]*tweet-content[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+          /<p[^>]*class="[^"]*tweet-text[^"]*"[^>]*>([\s\S]*?)<\/p>/gi
+        ];
+        for (var p = 0; p < patterns.length; p++) {
+          var regex = patterns[p];
+          var match;
+          while ((match = regex.exec(html)) !== null && tweetTexts.length < 5) {
+            var t = match[1].replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+            if (t.length > 5) tweetTexts.push(t);
+          }
+        }
+        // 全文搜索兜底
+        if (tweetTexts.length === 0) {
+          var fullText = html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+          tweetTexts.push(fullText.substring(0, 3000));
+        }
+        for (var i = 0; i < tweetTexts.length; i++) {
+          if (tweetTexts[i].toLowerCase().indexOf(addr.toLowerCase()) !== -1) {
+            matchedTweets.push(tweetTexts[i].substring(0, 500));
+          }
+        }
+        // 检查bio
+        var bioMatch = html.match(/<div[^>]*class="[^"]*profile-bio[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+        if (bioMatch) {
+          var bioText = bioMatch[1].replace(/<[^>]+>/g, ' ').trim();
+          if (bioText.toLowerCase().indexOf(addr.toLowerCase()) !== -1) matchedBio = true;
+        }
+        return true;
+      }).catch(function() {
+        return tryHost();
+      });
+    }
+    return tryHost();
+  }
+
+  // 策略3: Twitter syndication
+  function trySyndication() {
+    var synUrl = 'https://syndication.twitter.com/srv/timeline-profile/screen-name/' + handle;
+    return fetchTextViaProxy(synUrl, 8000).then(function(html) {
+      if (!html || html.length < 100) return false;
+      var text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+      if (text.toLowerCase().indexOf(addr.toLowerCase()) !== -1) {
+        matchedTweets.push('[在推特时间线中找到合约地址]');
+      }
+      return true;
+    }).catch(function() {
+      return false;
+    });
+  }
+
+  // 按顺序尝试3种策略
+  return tryNitterRSS().then(function(ok) {
+    succeeded = ok;
+    if (!ok) return tryNitterHTML();
+  }).then(function(ok2) {
+    if (!succeeded && ok2) succeeded = true;
+    if (!succeeded) return trySyndication();
+  }).then(function(ok3) {
+    if (!succeeded && ok3) succeeded = true;
+
+    // 记入缓存
+    resultCache.set(addr, { ts: Date.now(), hit: matchedTweets.length > 0 || matchedBio });
+
+    // 取消checking标记
+    for (var i = 0; i < feedsArr.length; i++) {
+      if (feedsArr[i].ca === addr) { feedsArr[i].checking = false; break; }
+    }
+    renderFeed();
+
+    // 判断结果
+    if (matchedTweets.length > 0 || matchedBio) {
+      matchCount++;
+      matchesArr.unshift({
+        name: token.name,
+        ca: addr,
+        chain: token.chain,
+        tw: handle,
+        mc: token.mc,
+        matchedTweets: matchedTweets,
+        matchedBio: matchedBio,
+        ts: Date.now()
+      });
+      renderMatches();
+      updateStats();
+      beep();
+      log('匹配成功! @' + handle + ' 发布了合约 ' + addr.substring(0, 12) + '...', 'match');
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        new Notification('合约匹配!', { body: token.name + ' (@' + handle + ') - ' + token.chain.toUpperCase() + '\n' + addr });
+      }
+    } else if (succeeded) {
+      log('未匹配: @' + handle);
+    } else {
+      log('无法获取 @' + handle + ' 的推文(所有策略失败)', 'warn');
+    }
+  });
+}
+
+function sleep(ms) { return new Promise(function(resolve) { setTimeout(resolve, ms); }); }
+
+// ==========================================================
+//  启动!
+// ==========================================================
+log('推特CA扫描神器 v2.0 启动', 'ok');
+log('运行环境: ' + navigator.userAgent.substring(0, 80), 'info');
+
+// 检查基本兼容性
+if (typeof fetch === 'undefined') {
+  showError('你的浏览器不支持 fetch API，请使用 Chrome/Edge/Firefox 最新版');
+  log('错误: 浏览器不支持 fetch', 'err');
+} else if (typeof WebSocket === 'undefined') {
+  showError('你的浏览器不支持 WebSocket，请使用 Chrome/Edge/Firefox 最新版');
+  log('错误: 浏览器不支持 WebSocket', 'err');
+} else if (typeof Promise === 'undefined') {
+  showError('你的浏览器不支持 Promise，请使用 Chrome/Edge/Firefox 最新版');
+  log('错误: 浏览器不支持 Promise', 'err');
+} else {
+  log('浏览器兼容性检查通过', 'ok');
+
+  // 启动连接
+  try {
+    connectSOL();
+  } catch(e) {
+    log('SOL启动失败: ' + e.message, 'err');
+  }
+  try {
+    startBSC();
+  } catch(e) {
+    log('BSC启动失败: ' + e.message, 'err');
+  }
+
+  // 定期清理缓存
+  setInterval(function() {
+    var now = Date.now();
+    resultCache.forEach(function(v, k) {
+      if (now - v.ts > CACHE_TTL) resultCache.delete(k);
+    });
+  }, 5 * 60000);
+
+  log('初始化完成，等待数据...', 'ok');
+}
+</script>
+</body>
+</html>
