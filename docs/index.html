@@ -16,9 +16,11 @@ body{background:#0b0e11;color:#eaecef;font-family:-apple-system,BlinkMacSystemFo
 .btn{padding:5px 14px;border-radius:5px;border:1px solid #2b2f36;background:transparent;color:#848e9c;cursor:pointer;font-size:12px;transition:all .2s}
 .btn.active{background:#00c853;color:#000;border-color:#00c853;font-weight:600}
 .btn:hover:not(.active){border-color:#848e9c;color:#eaecef}
+.btn.warn{background:#ff9800;color:#000;border-color:#ff9800}
+.btn.err{background:#f44336;color:#fff;border-color:#f44336}
 .stats{margin-left:auto;display:flex;gap:18px;font-size:12px;color:#848e9c}
 .stats-val{color:#eaecef;font-weight:600}
-.main{display:flex;height:calc(100vh - 140px)}
+.main{display:flex;height:calc(100vh - 180px)}
 .panel{overflow-y:auto;padding:14px}
 .panel-left{flex:2;border-right:1px solid #2b2f36}
 .panel-right{flex:1}
@@ -54,12 +56,22 @@ body{background:#0b0e11;color:#eaecef;font-family:-apple-system,BlinkMacSystemFo
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-track{background:#0b0e11}
 ::-webkit-scrollbar-thumb{background:#2b2f36;border-radius:3px}
-.log-box{background:#0b0e11;border:1px solid #2b2f36;border-radius:6px;padding:10px;margin:0 20px 0;max-height:150px;overflow-y:auto;font-family:monospace;font-size:11px;color:#848e9c}
+.log-box{background:#0b0e11;border:1px solid #2b2f36;border-radius:6px;padding:10px;margin:0 20px;max-height:150px;overflow-y:auto;font-family:monospace;font-size:11px;color:#848e9c}
 .highlight{color:#ff0;background:rgba(255,255,0,.15);padding:0 2px;border-radius:2px}
 .manual-link{display:inline-block;margin-left:8px;font-size:11px;padding:1px 6px;background:#2b2f36;border-radius:3px;color:#1e88e5;text-decoration:none}
 .manual-link:hover{background:#3b3f46}
 .err-banner{background:#f44336;color:#fff;padding:12px 20px;font-size:13px;display:none}
 .err-banner.show{display:block}
+.test-bar{background:#1a1d23;border-bottom:1px solid #2b2f36;padding:8px 20px;display:flex;gap:8px;align-items:center;font-size:12px}
+.test-bar input{background:#0b0e11;border:1px solid #2b2f36;color:#eaecef;padding:4px 10px;border-radius:4px;font-size:12px;width:200px}
+.test-bar input::placeholder{color:#555}
+.test-result{padding:4px 10px;font-size:11px;color:#848e9c;max-width:600px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.test-result.ok{color:#00c853}
+.test-result.fail{color:#f44336}
+.pipeline{display:flex;gap:14px;font-size:11px;color:#848e9c;padding:4px 20px 6px;background:#0b0e11;border-bottom:1px solid #2b2f36}
+.pipeline span{display:flex;align-items:center;gap:4px}
+.pipeline .pv{color:#eaecef;font-weight:600}
+.pipeline .arrow{color:#2b2f36}
 </style>
 </head>
 <body>
@@ -71,9 +83,18 @@ body{background:#0b0e11;color:#eaecef;font-family:-apple-system,BlinkMacSystemFo
   <div class="hdr-right">
     <span><span class="dot" id="solDot"></span>SOL: <span id="solStatus">离线</span></span>
     <span><span class="dot" id="bscDot"></span>BSC: <span id="bscStatus">离线</span></span>
+    <span>推特: <span id="twStatus" style="color:#f44336">未检测</span></span>
     <button class="btn" id="soundBtn" onclick="toggleSound()">声音 关</button>
     <button class="btn" id="logBtn" onclick="toggleLog()">隐藏日志</button>
   </div>
+</div>
+
+<div class="test-bar">
+  <span style="color:#848e9c">推特测试:</span>
+  <input type="text" id="testInput" placeholder="输入推特用户名 如 elonmusk" onkeydown="if(event.key==='Enter')runTest()">
+  <button class="btn" onclick="runTest()">测试</button>
+  <button class="btn" onclick="runSelfTest()">自动检测</button>
+  <span class="test-result" id="testResult"></span>
 </div>
 
 <div class="ctrl">
@@ -83,7 +104,10 @@ body{background:#0b0e11;color:#eaecef;font-family:-apple-system,BlinkMacSystemFo
   <div class="stats">
     <span>匹配: <span class="stats-val" id="statMatch">0</span></span>
     <span>扫描: <span class="stats-val" id="statScan">0</span></span>
+    <span>有推特: <span class="stats-val" id="statTw">0</span></span>
     <span>已查: <span class="stats-val" id="statCheck">0</span></span>
+    <span>成功: <span class="stats-val" id="statOk" style="color:#00c853">0</span></span>
+    <span>失败: <span class="stats-val" id="statFail" style="color:#f44336">0</span></span>
     <span>队列: <span class="stats-val" id="statQueue">0</span></span>
   </div>
 </div>
@@ -118,13 +142,13 @@ body{background:#0b0e11;color:#eaecef;font-family:-apple-system,BlinkMacSystemFo
 
 <script>
 // ========== 全局错误捕获 ==========
-window.onerror = function(msg, url, line, col, err) {
+window.onerror = function(msg, url, line) {
   showError('JS错误: ' + msg + ' (行' + line + ')');
   log('JS错误: ' + msg + ' 行:' + line, 'err');
   return false;
 };
 window.onunhandledrejection = function(e) {
-  log('Promise错误: ' + (e.reason ? e.reason.message || e.reason : '未知'), 'err');
+  log('Promise错误: ' + (e.reason ? e.reason.message || String(e.reason) : '未知'), 'err');
 };
 
 function showError(msg) {
@@ -136,7 +160,7 @@ function showError(msg) {
 if (typeof AbortSignal !== 'undefined' && !AbortSignal.timeout) {
   AbortSignal.timeout = function(ms) {
     var ctrl = new AbortController();
-    setTimeout(function() { ctrl.abort(); }, ms);
+    setTimeout(function() { try { ctrl.abort(); } catch(e){} }, ms);
     return ctrl.signal;
   };
 }
@@ -147,7 +171,10 @@ var soundOn = false;
 var matchesArr = [];
 var feedsArr = [];
 var scanCount = 0;
+var twCount = 0;
 var checkCount = 0;
+var checkOk = 0;
+var checkFail = 0;
 var matchCount = 0;
 var audioCtx = null;
 var queue = [];
@@ -156,18 +183,34 @@ var resultCache = new Map();
 var CACHE_TTL = 30 * 60000;
 var CHECK_INTERVAL = 1000;
 
+// ========== 工作中的推特源(自检后动态排序) ==========
+var workingSources = [];
+
 // ========== CORS代理 ==========
 var PROXIES = [
   function(u) { return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u); },
   function(u) { return 'https://corsproxy.io/?' + encodeURIComponent(u); },
-  function(u) { return 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u); }
+  function(u) { return 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u); },
+  function(u) { return 'https://cors-anywhere.herokuapp.com/' + u; },
+  function(u) { return 'https://crossorigin.me/' + u; }
 ];
 
-// ========== Nitter实例 ==========
-var NITTER_HOSTS = [
-  'https://nitter.poast.org',
-  'https://xcancel.com',
-  'https://nitter.privacydev.net'
+// ========== 推特内容源 ==========
+// 每个源: { name, type, getUrl(handle), parseContent(text) => string[] }
+var TWITTER_SOURCES = [
+  // Nitter实例 - RSS
+  { name: 'xcancel.com/RSS', type: 'rss', getUrl: function(h) { return 'https://xcancel.com/' + h + '/rss'; } },
+  { name: 'nitter.poast.org/RSS', type: 'rss', getUrl: function(h) { return 'https://nitter.poast.org/' + h + '/rss'; } },
+  { name: 'nitter.privacydev.net/RSS', type: 'rss', getUrl: function(h) { return 'https://nitter.privacydev.net/' + h + '/rss'; } },
+  { name: 'nitter.cz/RSS', type: 'rss', getUrl: function(h) { return 'https://nitter.cz/' + h + '/rss'; } },
+  { name: 'bird.habedieehre.net/RSS', type: 'rss', getUrl: function(h) { return 'https://bird.habedieehre.net/' + h + '/rss'; } },
+  { name: 'nitter.perennialte.ch/RSS', type: 'rss', getUrl: function(h) { return 'https://nitter.perennialte.ch/' + h + '/rss'; } },
+  // Nitter实例 - HTML页面
+  { name: 'xcancel.com/HTML', type: 'html', getUrl: function(h) { return 'https://xcancel.com/' + h; } },
+  { name: 'nitter.poast.org/HTML', type: 'html', getUrl: function(h) { return 'https://nitter.poast.org/' + h; } },
+  { name: 'nitter.cz/HTML', type: 'html', getUrl: function(h) { return 'https://nitter.cz/' + h; } },
+  // Twitter syndication
+  { name: 'Twitter Syndication', type: 'syndication', getUrl: function(h) { return 'https://syndication.twitter.com/srv/timeline-profile/screen-name/' + h; } },
 ];
 
 // ========== 日志 ==========
@@ -184,7 +227,6 @@ function log(msg, type) {
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
   if (box.children.length > 500) box.removeChild(box.firstChild);
-  // 也输出到控制台方便调试
   console.log('[' + type + '] ' + msg);
 }
 
@@ -202,8 +244,7 @@ function initAudio() {
 function beep() {
   if (!soundOn || !audioCtx) return;
   try {
-    var o = audioCtx.createOscillator();
-    var g = audioCtx.createGain();
+    var o = audioCtx.createOscillator(), g = audioCtx.createGain();
     o.connect(g); g.connect(audioCtx.destination);
     o.frequency.setValueAtTime(880, audioCtx.currentTime);
     o.frequency.setValueAtTime(1100, audioCtx.currentTime + 0.1);
@@ -219,9 +260,7 @@ function toggleSound() {
   var btn = document.getElementById('soundBtn');
   btn.textContent = soundOn ? '声音 开' : '声音 关';
   if (soundOn) btn.classList.add('active'); else btn.classList.remove('active');
-  if (soundOn && typeof Notification !== 'undefined' && Notification.permission === 'default') {
-    Notification.requestPermission();
-  }
+  if (soundOn && typeof Notification !== 'undefined' && Notification.permission === 'default') Notification.requestPermission();
 }
 
 // ========== 界面工具 ==========
@@ -230,30 +269,26 @@ function setFilter(chain, btn) {
   var btns = document.querySelectorAll('.ctrl .btn');
   for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
   btn.classList.add('active');
-  renderMatches();
-  renderFeed();
+  renderMatches(); renderFeed();
 }
-
 function updateStats() {
   document.getElementById('statMatch').textContent = matchCount;
   document.getElementById('statScan').textContent = scanCount;
+  document.getElementById('statTw').textContent = twCount;
   document.getElementById('statCheck').textContent = checkCount;
+  document.getElementById('statOk').textContent = checkOk;
+  document.getElementById('statFail').textContent = checkFail;
   document.getElementById('statQueue').textContent = queue.length;
 }
-
 function escapeHtml(s) {
   if (!s) return '';
-  var d = document.createElement('div');
-  d.textContent = String(s);
-  return d.innerHTML;
+  var d = document.createElement('div'); d.textContent = String(s); return d.innerHTML;
 }
-
 function formatTime(ts) {
   if (!ts) return '';
   var d = new Date(ts);
   return d.toLocaleTimeString('zh-CN', { hour12: false }) + ' ' + d.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
 }
-
 function copyAddr(addr) {
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(addr).then(function() {
@@ -261,7 +296,6 @@ function copyAddr(addr) {
       setTimeout(function() { t.classList.remove('show'); }, 1200);
     });
   } else {
-    // 兼容fallback
     var ta = document.createElement('textarea');
     ta.value = addr; document.body.appendChild(ta); ta.select();
     document.execCommand('copy'); document.body.removeChild(ta);
@@ -270,14 +304,11 @@ function copyAddr(addr) {
   }
 }
 
-// ========== 渲染匹配结果 ==========
+// ========== 渲染 ==========
 function renderMatches() {
   var el = document.getElementById('matchList');
   var list = currentFilter === 'all' ? matchesArr : matchesArr.filter(function(m) { return m.chain === currentFilter; });
-  if (!list.length) {
-    el.innerHTML = '<div class="empty"><div class="icon">&#128269;</div><p>暂无匹配</p></div>';
-    return;
-  }
+  if (!list.length) { el.innerHTML = '<div class="empty"><div class="icon">&#128269;</div><p>暂无匹配</p></div>'; return; }
   var html = '';
   for (var i = 0; i < list.length; i++) {
     var m = list[i];
@@ -286,116 +317,276 @@ function renderMatches() {
     html += '<div class="row"><span class="label">合约:</span><span class="value"><span class="addr" onclick="copyAddr(\'' + escapeHtml(m.ca) + '\')" title="点击复制">' + escapeHtml(m.ca) + '</span></span></div>';
     html += '<div class="row"><span class="label">推特:</span><span class="value"><a href="https://x.com/' + escapeHtml(m.tw) + '" target="_blank">@' + escapeHtml(m.tw) + '</a><a class="manual-link" href="https://x.com/' + escapeHtml(m.tw) + '" target="_blank">打开推特</a></span></div>';
     if (m.mc) html += '<div class="row"><span class="label">市值:</span><span class="value">' + escapeHtml(m.mc) + '</span></div>';
-    if (m.matchedTweets) {
-      for (var j = 0; j < m.matchedTweets.length; j++) {
-        html += '<div class="tweet-box">' + highlightAddr(escapeHtml(m.matchedTweets[j]), escapeHtml(m.ca)) + '</div>';
-      }
-    }
+    if (m.matchedTweets) { for (var j = 0; j < m.matchedTweets.length; j++) html += '<div class="tweet-box">' + highlightAddr(escapeHtml(m.matchedTweets[j]), escapeHtml(m.ca)) + '</div>'; }
     if (m.matchedBio) html += '<div class="tweet-box" style="border-left-color:#1e88e5">在推特简介中找到合约地址</div>';
-    html += '<div class="time">' + formatTime(m.ts) + '</div>';
-    html += '</div>';
+    html += '<div class="time">' + formatTime(m.ts) + '</div></div>';
   }
   el.innerHTML = html;
 }
-
 function highlightAddr(text, addr) {
   if (!addr || addr.length < 10) return text;
   var idx = text.toLowerCase().indexOf(addr.toLowerCase());
   if (idx === -1) return text;
   return text.substring(0, idx) + '<span class="highlight">' + text.substring(idx, idx + addr.length) + '</span>' + text.substring(idx + addr.length);
 }
-
-// ========== 渲染新币流 ==========
 function renderFeed() {
   var el = document.getElementById('feedList');
   var list = currentFilter === 'all' ? feedsArr : feedsArr.filter(function(f) { return f.chain === currentFilter; });
-  if (!list.length) {
-    el.innerHTML = '<div class="empty"><div class="icon">&#9201;</div><p>等待新币...</p></div>';
-    return;
-  }
+  if (!list.length) { el.innerHTML = '<div class="empty"><div class="icon">&#9201;</div><p>等待新币...</p></div>'; return; }
   var html = '';
   var max = Math.min(list.length, 150);
   for (var i = 0; i < max; i++) {
     var f = list[i];
-    var cls = 'feed-item';
-    if (f.tw) cls += ' has-tw';
-    if (f.checking) cls += ' checking';
-    html += '<div class="' + cls + '">';
+    html += '<div class="feed-item' + (f.tw ? ' has-tw' : '') + (f.checking ? ' checking' : '') + '">';
     html += '<div class="feed-name">' + escapeHtml(f.name) + ' <span class="tag ' + f.chain + '" style="font-size:9px">' + f.chain.toUpperCase() + '</span></div>';
-    var detail = '';
-    if (f.ca) detail += escapeHtml(f.ca.substring(0, 6)) + '...' + escapeHtml(f.ca.slice(-4));
-    if (f.tw) detail += ' | @' + escapeHtml(f.tw);
-    detail += ' | ' + formatTime(f.ts);
-    html += '<div class="feed-detail">' + detail + '</div>';
-    html += '</div>';
+    var d = ''; if (f.ca) d += escapeHtml(f.ca.substring(0, 6)) + '...' + escapeHtml(f.ca.slice(-4));
+    if (f.tw) d += ' | @' + escapeHtml(f.tw); d += ' | ' + formatTime(f.ts);
+    html += '<div class="feed-detail">' + d + '</div></div>';
   }
   el.innerHTML = html;
 }
-
 function addFeed(token) {
   feedsArr.unshift(token);
   if (feedsArr.length > 500) feedsArr = feedsArr.slice(0, 500);
   scanCount++;
-  renderFeed();
-  updateStats();
+  renderFeed(); updateStats();
 }
 
-// ========== 安全的fetch封装 ==========
+// ========== 安全fetch ==========
 function safeFetch(url, timeoutMs) {
   timeoutMs = timeoutMs || 10000;
   var opts = {};
-  try {
-    opts.signal = AbortSignal.timeout(timeoutMs);
-  } catch(e) {
-    // AbortSignal.timeout不支持的情况
+  try { opts.signal = AbortSignal.timeout(timeoutMs); } catch(e) {
     var ctrl = new AbortController();
-    setTimeout(function() { ctrl.abort(); }, timeoutMs);
+    setTimeout(function() { try { ctrl.abort(); } catch(e2){} }, timeoutMs);
     opts.signal = ctrl.signal;
   }
   return fetch(url, opts);
 }
 
-function safeFetchJson(url, timeoutMs) {
-  return safeFetch(url, timeoutMs).then(function(r) {
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    return r.json();
-  });
-}
-
-// ========== 通过代理获取 ==========
-function fetchViaProxy(url, timeoutMs) {
+// ========== 通过代理获取文本 ==========
+function fetchTextWithProxies(url, timeoutMs) {
   timeoutMs = timeoutMs || 10000;
-  // 先尝试直连
-  return safeFetchJson(url, timeoutMs).catch(function() {
-    // 直连失败，依次尝试代理
-    var idx = 0;
-    function tryNext() {
-      if (idx >= PROXIES.length) return Promise.reject(new Error('所有代理均失败'));
-      var proxyUrl = PROXIES[idx](url);
-      idx++;
-      return safeFetchJson(proxyUrl, timeoutMs).catch(function() { return tryNext(); });
-    }
-    return tryNext();
-  });
-}
-
-function fetchTextViaProxy(url, timeoutMs) {
-  timeoutMs = timeoutMs || 10000;
-  function fetchText(u) {
-    return safeFetch(u, timeoutMs).then(function(r) {
+  function tryFetch(fetchUrl) {
+    return safeFetch(fetchUrl, timeoutMs).then(function(r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.text();
     });
   }
-  return fetchText(url).catch(function() {
+  // 先直连
+  return tryFetch(url).catch(function() {
+    // 依次尝试代理
     var idx = 0;
     function tryNext() {
       if (idx >= PROXIES.length) return Promise.reject(new Error('所有代理均失败'));
       var proxyUrl = PROXIES[idx](url);
       idx++;
-      return fetchText(proxyUrl).catch(function() { return tryNext(); });
+      return tryFetch(proxyUrl).catch(function() { return tryNext(); });
     }
     return tryNext();
+  });
+}
+
+function fetchJsonWithProxies(url, timeoutMs) {
+  return fetchTextWithProxies(url, timeoutMs).then(function(t) { return JSON.parse(t); });
+}
+
+// ==========================================================
+//  推特内容获取 - 核心函数
+// ==========================================================
+
+// 从RSS XML中提取推文文本
+function parseRSS(xml) {
+  var tweets = [];
+  var items = xml.match(/<item>[\s\S]*?<\/item>/gi) || [];
+  var count = Math.min(items.length, 5);
+  for (var i = 0; i < count; i++) {
+    var desc = items[i].match(/<description><!\[CDATA\[([\s\S]*?)\]\]>/i) || items[i].match(/<description>([\s\S]*?)<\/description>/i);
+    var title = items[i].match(/<title><!\[CDATA\[([\s\S]*?)\]\]>/i) || items[i].match(/<title>([\s\S]*?)<\/title>/i);
+    var text = ((desc ? desc[1] : '') + ' ' + (title ? title[1] : ''))
+      .replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim();
+    if (text.length > 3) tweets.push(text);
+  }
+  return tweets;
+}
+
+// 从Nitter HTML中提取推文文本和bio
+function parseNitterHTML(html) {
+  var tweets = [];
+  var bio = '';
+  // 推文内容
+  var patterns = [
+    /<div[^>]*class="[^"]*tweet-content[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+    /<p[^>]*class="[^"]*tweet-text[^"]*"[^>]*>([\s\S]*?)<\/p>/gi
+  ];
+  for (var p = 0; p < patterns.length; p++) {
+    var m;
+    while ((m = patterns[p].exec(html)) !== null && tweets.length < 5) {
+      var t = m[1].replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+      if (t.length > 5) tweets.push(t);
+    }
+  }
+  // 兜底全文
+  if (tweets.length === 0) {
+    var full = html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+    if (full.length > 50) tweets.push(full.substring(0, 3000));
+  }
+  // Bio
+  var bioM = html.match(/<div[^>]*class="[^"]*profile-bio[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+  if (bioM) bio = bioM[1].replace(/<[^>]+>/g, ' ').trim();
+  return { tweets: tweets, bio: bio };
+}
+
+// 从syndication HTML中提取内容
+function parseSyndicationHTML(html) {
+  var text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  return { tweets: [text.substring(0, 3000)], bio: '' };
+}
+
+// 尝试单个源获取推特内容(用指定代理)
+function fetchFromSource(source, handle, proxyFn) {
+  var url = source.getUrl(handle);
+  var fetchUrl = proxyFn ? proxyFn(url) : url;
+  return safeFetch(fetchUrl, 8000).then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.text();
+  }).then(function(text) {
+    if (!text || text.length < 50) throw new Error('空内容');
+    if (source.type === 'rss') {
+      if (text.indexOf('<item>') === -1 && text.indexOf('<item ') === -1) throw new Error('非RSS');
+      return { tweets: parseRSS(text), bio: '', source: source.name };
+    } else if (source.type === 'html') {
+      var r = parseNitterHTML(text);
+      return { tweets: r.tweets, bio: r.bio, source: source.name };
+    } else if (source.type === 'syndication') {
+      var r2 = parseSyndicationHTML(text);
+      return { tweets: r2.tweets, bio: r2.bio, source: source.name };
+    }
+    throw new Error('未知源类型');
+  });
+}
+
+// 获取某个推特用户的内容（遍历所有源+代理）
+function fetchTwitterContent(handle) {
+  // 如果有已知可用的源，优先用
+  var sources = workingSources.length > 0 ? workingSources.concat(TWITTER_SOURCES) : TWITTER_SOURCES;
+  // 去重
+  var seen = {};
+  var uniqueSources = [];
+  for (var i = 0; i < sources.length; i++) {
+    if (!seen[sources[i].name]) { seen[sources[i].name] = true; uniqueSources.push(sources[i]); }
+  }
+
+  var srcIdx = 0;
+  function trySource() {
+    if (srcIdx >= uniqueSources.length) return Promise.reject(new Error('所有推特源均失败'));
+    var src = uniqueSources[srcIdx];
+    srcIdx++;
+
+    // 先直连，再代理
+    var pxIdx = -1; // -1 = 直连
+    function tryProxy() {
+      if (pxIdx >= PROXIES.length) return trySource(); // 这个源所有代理都失败，试下一个源
+      var proxyFn = pxIdx === -1 ? null : PROXIES[pxIdx];
+      pxIdx++;
+      return fetchFromSource(src, handle, proxyFn).then(function(result) {
+        // 成功！记录可用源
+        if (workingSources.indexOf(src) === -1) {
+          workingSources.unshift(src);
+          if (workingSources.length > 3) workingSources = workingSources.slice(0, 3);
+        }
+        return result;
+      }).catch(function() {
+        return tryProxy();
+      });
+    }
+    return tryProxy();
+  }
+  return trySource();
+}
+
+// ==========================================================
+//  自检 & 手动测试
+// ==========================================================
+function runSelfTest() {
+  log('开始自动检测推特源可用性...', 'warn');
+  document.getElementById('testResult').textContent = '检测中...';
+  document.getElementById('testResult').className = 'test-result';
+  document.getElementById('twStatus').textContent = '检测中';
+  document.getElementById('twStatus').style.color = '#ff9800';
+  workingSources = []; // 重置
+
+  var testHandle = 'elonmusk';
+  var results = [];
+  var total = 0;
+
+  // 测试每个源(只用第一个代理，快速)
+  function testNext(idx) {
+    if (idx >= TWITTER_SOURCES.length) {
+      // 汇总
+      var ok = results.filter(function(r) { return r.ok; });
+      log('检测完成: ' + ok.length + '/' + total + ' 个推特源可用', ok.length > 0 ? 'ok' : 'err');
+      for (var i = 0; i < results.length; i++) {
+        log('  ' + results[i].name + ': ' + (results[i].ok ? '可用 (' + results[i].tweets + '条推文)' : '不可用'), results[i].ok ? 'ok' : 'err');
+      }
+      if (ok.length > 0) {
+        workingSources = ok.map(function(r) { return r.source; });
+        document.getElementById('testResult').textContent = ok.length + ' 个推特源可用';
+        document.getElementById('testResult').className = 'test-result ok';
+        document.getElementById('twStatus').textContent = '可用(' + ok.length + '源)';
+        document.getElementById('twStatus').style.color = '#00c853';
+      } else {
+        document.getElementById('testResult').textContent = '所有推特源不可用！推特检查功能无法工作';
+        document.getElementById('testResult').className = 'test-result fail';
+        document.getElementById('twStatus').textContent = '不可用';
+        document.getElementById('twStatus').style.color = '#f44336';
+      }
+      return;
+    }
+
+    var src = TWITTER_SOURCES[idx];
+    total++;
+    // 尝试直连 + 前2个代理
+    var attempts = [null, PROXIES[0], PROXIES[1]];
+    var aIdx = 0;
+    function tryAttempt() {
+      if (aIdx >= attempts.length) {
+        results.push({ name: src.name, ok: false, source: src });
+        testNext(idx + 1);
+        return;
+      }
+      var proxyFn = attempts[aIdx];
+      aIdx++;
+      fetchFromSource(src, testHandle, proxyFn).then(function(r) {
+        results.push({ name: src.name, ok: true, tweets: r.tweets.length, source: src });
+        testNext(idx + 1);
+      }).catch(function() {
+        tryAttempt();
+      });
+    }
+    tryAttempt();
+  }
+  testNext(0);
+}
+
+function runTest() {
+  var handle = document.getElementById('testInput').value.trim().replace(/^@/, '');
+  if (!handle) { handle = 'elonmusk'; document.getElementById('testInput').value = handle; }
+  log('手动测试: 获取 @' + handle + ' 的推文...', 'warn');
+  document.getElementById('testResult').textContent = '获取中...';
+  document.getElementById('testResult').className = 'test-result';
+
+  fetchTwitterContent(handle).then(function(result) {
+    var msg = '成功! 来源: ' + result.source + ' | 获取到 ' + result.tweets.length + ' 条内容';
+    if (result.tweets.length > 0) msg += ' | 首条: ' + result.tweets[0].substring(0, 80) + '...';
+    log('测试结果: ' + msg, 'ok');
+    document.getElementById('testResult').textContent = msg;
+    document.getElementById('testResult').className = 'test-result ok';
+  }).catch(function(e) {
+    var msg = '失败: ' + e.message;
+    log('测试结果: ' + msg, 'err');
+    document.getElementById('testResult').textContent = msg;
+    document.getElementById('testResult').className = 'test-result fail';
   });
 }
 
@@ -407,13 +598,8 @@ var solReconnectDelay = 1000;
 
 function connectSOL() {
   log('正在连接 PumpPortal (SOL)...');
-  try {
-    solWs = new WebSocket('wss://pumpportal.fun/api/data');
-  } catch(e) {
-    log('WebSocket创建失败: ' + e.message, 'err');
-    setTimeout(connectSOL, solReconnectDelay);
-    return;
-  }
+  try { solWs = new WebSocket('wss://pumpportal.fun/api/data'); }
+  catch(e) { log('WebSocket创建失败: ' + e.message, 'err'); setTimeout(connectSOL, solReconnectDelay); return; }
 
   solWs.onopen = function() {
     log('SOL 数据源已连接', 'ok');
@@ -422,78 +608,51 @@ function connectSOL() {
     solReconnectDelay = 1000;
     solWs.send(JSON.stringify({ method: 'subscribeNewToken' }));
   };
-
   solWs.onmessage = function(ev) {
     try {
       var d = JSON.parse(ev.data);
       if (!d.mint) return;
-      var token = {
-        name: d.name || d.symbol || '未知',
-        ca: d.mint,
-        chain: 'sol',
-        tw: null,
-        mc: d.marketCapSol ? Number(d.marketCapSol).toFixed(1) + ' SOL' : null,
-        uri: d.uri || null,
-        ts: Date.now()
-      };
+      var token = { name: d.name || d.symbol || '未知', ca: d.mint, chain: 'sol', tw: null,
+        mc: d.marketCapSol ? Number(d.marketCapSol).toFixed(1) + ' SOL' : null, uri: d.uri || null, ts: Date.now() };
       addFeed(token);
-      // 从IPFS元数据获取推特
       if (token.uri) fetchTokenMeta(token);
-    } catch(e) {
-      // 忽略解析错误
-    }
+    } catch(e) {}
   };
-
   solWs.onclose = function() {
-    log('SOL 连接断开，正在重连...', 'warn');
+    log('SOL 连接断开，重连中...', 'warn');
     document.getElementById('solDot').classList.remove('on');
     document.getElementById('solStatus').textContent = '离线';
     solReconnectDelay = Math.min(solReconnectDelay * 2, 30000);
     setTimeout(connectSOL, solReconnectDelay);
   };
-
-  solWs.onerror = function() {
-    try { solWs.close(); } catch(e) {}
-  };
+  solWs.onerror = function() { try { solWs.close(); } catch(e) {} };
 }
 
-// ========== 获取SOL代币IPFS元数据 ==========
 function fetchTokenMeta(token) {
   var url = token.uri;
   if (!url) return;
   if (url.indexOf('ipfs://') === 0) url = 'https://ipfs.io/ipfs/' + url.slice(7);
 
-  fetchViaProxy(url, 8000).then(function(d) {
+  fetchJsonWithProxies(url, 8000).then(function(d) {
     if (!d) return;
     var tw = d.twitter || d.x || '';
     if (!tw && d.extensions) tw = d.extensions.twitter || d.extensions.x || '';
     if (!tw && d.social) tw = d.social.twitter || d.social.x || '';
     if (!tw) return;
-
-    // 从URL中提取用户名
     var m = tw.match(/(?:twitter\.com|x\.com)\/([A-Za-z0-9_]+)/);
-    if (m) {
-      tw = m[1];
-    } else {
-      tw = tw.replace(/^@/, '').replace(/^https?:\/\//, '').split('/')[0].trim();
-    }
-
+    tw = m ? m[1] : tw.replace(/^@/, '').replace(/^https?:\/\//, '').split('/')[0].trim();
     if (tw && tw.length >= 2 && tw.length <= 15) {
       token.tw = tw;
-      // 更新feed中的显示
-      for (var i = 0; i < feedsArr.length; i++) {
-        if (feedsArr[i].ca === token.ca) { feedsArr[i].tw = tw; break; }
-      }
-      renderFeed();
+      twCount++;
+      for (var i = 0; i < feedsArr.length; i++) { if (feedsArr[i].ca === token.ca) { feedsArr[i].tw = tw; break; } }
+      renderFeed(); updateStats();
       enqueueCheck(token);
     }
-  }).catch(function() {
-    // 元数据获取失败，正常情况
-  });
+  }).catch(function() {});
 }
 
 // ==========================================================
-//  BSC链: GeckoTerminal 新池子
+//  BSC链: GeckoTerminal
 // ==========================================================
 var bscSeenAddrs = new Set();
 
@@ -506,63 +665,35 @@ function startBSC() {
 
 function pollBSC() {
   var url = 'https://api.geckoterminal.com/api/v2/networks/bsc/new_pools?include=base_token&page=1';
-
-  fetchViaProxy(url, 15000).then(function(data) {
-    if (!data || !data.data || !Array.isArray(data.data)) {
-      log('BSC: 数据为空或格式异常', 'warn');
-      return;
-    }
-
+  fetchJsonWithProxies(url, 15000).then(function(data) {
+    if (!data || !data.data || !Array.isArray(data.data)) { log('BSC: 数据异常', 'warn'); return; }
     log('BSC: 获取到 ' + data.data.length + ' 个新池子', 'ok');
-
-    // 构建included里的token映射
     var tokenMap = {};
     if (data.included && Array.isArray(data.included)) {
       for (var i = 0; i < data.included.length; i++) {
         var inc = data.included[i];
-        if (inc.type === 'token' && inc.attributes) {
-          tokenMap[inc.id] = inc.attributes;
-        }
+        if (inc.type === 'token' && inc.attributes) tokenMap[inc.id] = inc.attributes;
       }
     }
-
     for (var j = 0; j < data.data.length; j++) {
-      var pool = data.data[j];
-      var attr = pool.attributes || {};
-      var rel = pool.relationships || {};
+      var pool = data.data[j], attr = pool.attributes || {}, rel = pool.relationships || {};
       var btId = (rel.base_token && rel.base_token.data) ? rel.base_token.data.id : '';
-      // btId格式: "bsc_0xADDRESS"
       var addr = btId.indexOf('bsc_') === 0 ? btId.slice(4) : btId;
       if (!addr || bscSeenAddrs.has(addr)) continue;
       bscSeenAddrs.add(addr);
-
       var tInfo = tokenMap[btId] || {};
-      var name = tInfo.name || tInfo.symbol || attr.name || '未知';
-
-      var token = {
-        name: name,
-        ca: addr,
-        chain: 'bsc',
-        tw: null,
-        mc: attr.fdv_usd ? '$' + Number(attr.fdv_usd).toLocaleString() : null,
-        ts: Date.now()
-      };
+      var token = { name: tInfo.name || tInfo.symbol || attr.name || '未知', ca: addr, chain: 'bsc', tw: null,
+        mc: attr.fdv_usd ? '$' + Number(attr.fdv_usd).toLocaleString() : null, ts: Date.now() };
       addFeed(token);
-      // DexScreener查推特
       lookupBscTwitter(token);
     }
-  }).catch(function(e) {
-    log('BSC 轮询出错: ' + e.message, 'err');
-  }).finally(function() {
-    setTimeout(pollBSC, 15000);
-  });
+  }).catch(function(e) { log('BSC 轮询出错: ' + e.message, 'err'); })
+    .finally(function() { setTimeout(pollBSC, 15000); });
 }
 
-// ========== DexScreener查BSC代币推特 ==========
 function lookupBscTwitter(token) {
   var url = 'https://api.dexscreener.com/latest/dex/tokens/' + token.ca;
-
-  fetchViaProxy(url, 10000).then(function(data) {
+  fetchJsonWithProxies(url, 10000).then(function(data) {
     if (!data || !data.pairs) return;
     for (var i = 0; i < data.pairs.length; i++) {
       var pair = data.pairs[i];
@@ -572,20 +703,15 @@ function lookupBscTwitter(token) {
         if (s.type === 'twitter' && s.url) {
           var m = s.url.match(/(?:twitter\.com|x\.com)\/([A-Za-z0-9_]+)/);
           if (m) {
-            token.tw = m[1];
-            for (var k = 0; k < feedsArr.length; k++) {
-              if (feedsArr[k].ca === token.ca) { feedsArr[k].tw = m[1]; break; }
-            }
-            renderFeed();
-            enqueueCheck(token);
-            return;
+            token.tw = m[1]; twCount++;
+            for (var k = 0; k < feedsArr.length; k++) { if (feedsArr[k].ca === token.ca) { feedsArr[k].tw = m[1]; break; } }
+            renderFeed(); updateStats();
+            enqueueCheck(token); return;
           }
         }
       }
     }
-  }).catch(function() {
-    // DexScreener查询失败，忽略
-  });
+  }).catch(function() {});
 }
 
 // ==========================================================
@@ -593,237 +719,100 @@ function lookupBscTwitter(token) {
 // ==========================================================
 function enqueueCheck(token) {
   if (!token.tw || !token.ca) return;
-  if (token.ca.indexOf('...') !== -1) return;
   if (resultCache.has(token.ca) && Date.now() - resultCache.get(token.ca).ts < CACHE_TTL) return;
-  queue.push(token);
-  updateStats();
+  queue.push(token); updateStats();
   if (!queueRunning) processQueue();
 }
 
 function processQueue() {
   if (queueRunning || queue.length === 0) return;
   queueRunning = true;
-
   function next() {
     if (queue.length === 0) { queueRunning = false; return; }
-    var token = queue.shift();
-    updateStats();
+    var token = queue.shift(); updateStats();
     checkTwitter(token).then(function() {
-      checkCount++;
-      updateStats();
+      checkCount++; updateStats();
       return sleep(CHECK_INTERVAL);
-    }).then(function() {
-      next();
-    }).catch(function(e) {
+    }).then(next).catch(function(e) {
       log('推特检查异常 @' + token.tw + ': ' + e.message, 'err');
-      checkCount++;
-      updateStats();
+      checkCount++; checkFail++; updateStats();
       sleep(CHECK_INTERVAL).then(next);
     });
   }
   next();
 }
 
-// ==========================================================
-//  推特内容检查 (3种策略)
-// ==========================================================
 function checkTwitter(token) {
-  var handle = token.tw;
-  var addr = token.ca;
-  log('检查 @' + handle + ' 是否发布合约 ' + addr.substring(0, 8) + '...');
-
-  // 标记feed中正在检查
-  for (var i = 0; i < feedsArr.length; i++) {
-    if (feedsArr[i].ca === addr) { feedsArr[i].checking = true; break; }
-  }
+  var handle = token.tw, addr = token.ca;
+  log('检查 @' + handle + ' → ' + addr.substring(0, 8) + '...');
+  for (var i = 0; i < feedsArr.length; i++) { if (feedsArr[i].ca === addr) { feedsArr[i].checking = true; break; } }
   renderFeed();
 
-  var matchedTweets = [];
-  var matchedBio = false;
-  var succeeded = false;
+  return fetchTwitterContent(handle).then(function(result) {
+    var matchedTweets = [];
+    var matchedBio = false;
 
-  // 策略1: Nitter RSS
-  function tryNitterRSS() {
-    var hostIdx = 0;
-    function tryHost() {
-      if (hostIdx >= NITTER_HOSTS.length) return Promise.resolve(false);
-      var host = NITTER_HOSTS[hostIdx];
-      hostIdx++;
-      var rssUrl = host + '/' + handle + '/rss';
-      return fetchTextViaProxy(rssUrl, 8000).then(function(xml) {
-        if (!xml || xml.length < 50 || xml.indexOf('<') === -1) return tryHost();
-        // 解析RSS
-        var items = xml.match(/<item>[\s\S]*?<\/item>/gi) || [];
-        var count = Math.min(items.length, 5);
-        for (var i = 0; i < count; i++) {
-          var descMatch = items[i].match(/<description><!\[CDATA\[([\s\S]*?)\]\]>/i) || items[i].match(/<description>([\s\S]*?)<\/description>/i);
-          var titleMatch = items[i].match(/<title><!\[CDATA\[([\s\S]*?)\]\]>/i) || items[i].match(/<title>([\s\S]*?)<\/title>/i);
-          var text = ((descMatch ? descMatch[1] : '') + (titleMatch ? titleMatch[1] : ''))
-            .replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
-          if (text.toLowerCase().indexOf(addr.toLowerCase()) !== -1) {
-            matchedTweets.push(text.substring(0, 500));
-          }
-        }
-        log('RSS获取成功: ' + host, 'ok');
-        return true;
-      }).catch(function() {
-        return tryHost();
-      });
-    }
-    return tryHost();
-  }
-
-  // 策略2: Nitter HTML
-  function tryNitterHTML() {
-    var hostIdx = 0;
-    function tryHost() {
-      if (hostIdx >= NITTER_HOSTS.length) return Promise.resolve(false);
-      var host = NITTER_HOSTS[hostIdx];
-      hostIdx++;
-      return fetchTextViaProxy(host + '/' + handle, 8000).then(function(html) {
-        if (!html || html.length < 200) return tryHost();
-        // 提取推文
-        var tweetTexts = [];
-        var patterns = [
-          /<div[^>]*class="[^"]*tweet-content[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
-          /<p[^>]*class="[^"]*tweet-text[^"]*"[^>]*>([\s\S]*?)<\/p>/gi
-        ];
-        for (var p = 0; p < patterns.length; p++) {
-          var regex = patterns[p];
-          var match;
-          while ((match = regex.exec(html)) !== null && tweetTexts.length < 5) {
-            var t = match[1].replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
-            if (t.length > 5) tweetTexts.push(t);
-          }
-        }
-        // 全文搜索兜底
-        if (tweetTexts.length === 0) {
-          var fullText = html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-          tweetTexts.push(fullText.substring(0, 3000));
-        }
-        for (var i = 0; i < tweetTexts.length; i++) {
-          if (tweetTexts[i].toLowerCase().indexOf(addr.toLowerCase()) !== -1) {
-            matchedTweets.push(tweetTexts[i].substring(0, 500));
-          }
-        }
-        // 检查bio
-        var bioMatch = html.match(/<div[^>]*class="[^"]*profile-bio[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
-        if (bioMatch) {
-          var bioText = bioMatch[1].replace(/<[^>]+>/g, ' ').trim();
-          if (bioText.toLowerCase().indexOf(addr.toLowerCase()) !== -1) matchedBio = true;
-        }
-        return true;
-      }).catch(function() {
-        return tryHost();
-      });
-    }
-    return tryHost();
-  }
-
-  // 策略3: Twitter syndication
-  function trySyndication() {
-    var synUrl = 'https://syndication.twitter.com/srv/timeline-profile/screen-name/' + handle;
-    return fetchTextViaProxy(synUrl, 8000).then(function(html) {
-      if (!html || html.length < 100) return false;
-      var text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-      if (text.toLowerCase().indexOf(addr.toLowerCase()) !== -1) {
-        matchedTweets.push('[在推特时间线中找到合约地址]');
+    // 检查推文内容
+    for (var i = 0; i < result.tweets.length; i++) {
+      if (result.tweets[i].toLowerCase().indexOf(addr.toLowerCase()) !== -1) {
+        matchedTweets.push(result.tweets[i].substring(0, 500));
       }
-      return true;
-    }).catch(function() {
-      return false;
-    });
-  }
-
-  // 按顺序尝试3种策略
-  return tryNitterRSS().then(function(ok) {
-    succeeded = ok;
-    if (!ok) return tryNitterHTML();
-  }).then(function(ok2) {
-    if (!succeeded && ok2) succeeded = true;
-    if (!succeeded) return trySyndication();
-  }).then(function(ok3) {
-    if (!succeeded && ok3) succeeded = true;
-
-    // 记入缓存
-    resultCache.set(addr, { ts: Date.now(), hit: matchedTweets.length > 0 || matchedBio });
-
-    // 取消checking标记
-    for (var i = 0; i < feedsArr.length; i++) {
-      if (feedsArr[i].ca === addr) { feedsArr[i].checking = false; break; }
     }
+    // 检查bio
+    if (result.bio && result.bio.toLowerCase().indexOf(addr.toLowerCase()) !== -1) matchedBio = true;
+
+    // 更新缓存和UI
+    checkOk++;
+    resultCache.set(addr, { ts: Date.now(), hit: matchedTweets.length > 0 || matchedBio });
+    for (var j = 0; j < feedsArr.length; j++) { if (feedsArr[j].ca === addr) { feedsArr[j].checking = false; break; } }
     renderFeed();
 
-    // 判断结果
     if (matchedTweets.length > 0 || matchedBio) {
       matchCount++;
-      matchesArr.unshift({
-        name: token.name,
-        ca: addr,
-        chain: token.chain,
-        tw: handle,
-        mc: token.mc,
-        matchedTweets: matchedTweets,
-        matchedBio: matchedBio,
-        ts: Date.now()
-      });
-      renderMatches();
-      updateStats();
-      beep();
+      matchesArr.unshift({ name: token.name, ca: addr, chain: token.chain, tw: handle, mc: token.mc,
+        matchedTweets: matchedTweets, matchedBio: matchedBio, ts: Date.now() });
+      renderMatches(); updateStats(); beep();
       log('匹配成功! @' + handle + ' 发布了合约 ' + addr.substring(0, 12) + '...', 'match');
-      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted')
         new Notification('合约匹配!', { body: token.name + ' (@' + handle + ') - ' + token.chain.toUpperCase() + '\n' + addr });
-      }
-    } else if (succeeded) {
-      log('未匹配: @' + handle);
     } else {
-      log('无法获取 @' + handle + ' 的推文(所有策略失败)', 'warn');
+      log('未匹配: @' + handle + ' (来源:' + result.source + ')');
     }
+  }).catch(function(e) {
+    checkFail++;
+    for (var i = 0; i < feedsArr.length; i++) { if (feedsArr[i].ca === addr) { feedsArr[i].checking = false; break; } }
+    renderFeed();
+    resultCache.set(addr, { ts: Date.now(), hit: false });
+    log('获取失败 @' + handle + ': ' + e.message, 'warn');
   });
 }
 
-function sleep(ms) { return new Promise(function(resolve) { setTimeout(resolve, ms); }); }
+function sleep(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
 
 // ==========================================================
-//  启动!
+//  启动
 // ==========================================================
-log('推特CA扫描神器 v2.0 启动', 'ok');
-log('运行环境: ' + navigator.userAgent.substring(0, 80), 'info');
+log('推特CA扫描神器 v3.0 启动', 'ok');
+log('浏览器: ' + navigator.userAgent.substring(0, 60), 'info');
 
-// 检查基本兼容性
-if (typeof fetch === 'undefined') {
-  showError('你的浏览器不支持 fetch API，请使用 Chrome/Edge/Firefox 最新版');
-  log('错误: 浏览器不支持 fetch', 'err');
-} else if (typeof WebSocket === 'undefined') {
-  showError('你的浏览器不支持 WebSocket，请使用 Chrome/Edge/Firefox 最新版');
-  log('错误: 浏览器不支持 WebSocket', 'err');
-} else if (typeof Promise === 'undefined') {
-  showError('你的浏览器不支持 Promise，请使用 Chrome/Edge/Firefox 最新版');
-  log('错误: 浏览器不支持 Promise', 'err');
+if (typeof fetch === 'undefined' || typeof WebSocket === 'undefined' || typeof Promise === 'undefined') {
+  showError('浏览器不兼容，请使用最新版 Chrome/Edge/Firefox');
 } else {
-  log('浏览器兼容性检查通过', 'ok');
+  log('兼容性检查通过', 'ok');
+  try { connectSOL(); } catch(e) { log('SOL启动失败: ' + e.message, 'err'); }
+  try { startBSC(); } catch(e) { log('BSC启动失败: ' + e.message, 'err'); }
 
-  // 启动连接
-  try {
-    connectSOL();
-  } catch(e) {
-    log('SOL启动失败: ' + e.message, 'err');
-  }
-  try {
-    startBSC();
-  } catch(e) {
-    log('BSC启动失败: ' + e.message, 'err');
-  }
+  // 3秒后自动检测推特源
+  setTimeout(function() {
+    log('自动检测推特源可用性...', 'warn');
+    runSelfTest();
+  }, 3000);
 
   // 定期清理缓存
   setInterval(function() {
     var now = Date.now();
-    resultCache.forEach(function(v, k) {
-      if (now - v.ts > CACHE_TTL) resultCache.delete(k);
-    });
+    resultCache.forEach(function(v, k) { if (now - v.ts > CACHE_TTL) resultCache.delete(k); });
   }, 5 * 60000);
-
-  log('初始化完成，等待数据...', 'ok');
 }
 </script>
 </body>
